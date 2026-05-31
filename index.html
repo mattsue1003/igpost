@@ -101,6 +101,11 @@
   }
   .canvas-shell:hover .hint-bar{opacity:1}
   @media(max-width:880px){.resize-handle{opacity:1;width:26px;height:26px}.hint-bar{opacity:1}}
+  .guide{position:absolute;background:var(--accent-2);opacity:0;pointer-events:none;z-index:6;
+    transition:opacity .12s;box-shadow:0 0 6px rgba(232,201,135,.7)}
+  .guide.show{opacity:.9}
+  .guide-v{left:50%;top:0;bottom:0;width:1.5px;transform:translateX(-50%)}
+  .guide-h{top:50%;left:0;right:0;height:1.5px;transform:translateY(-50%)}
   .mark{font-family:'Playfair Display',serif;font-size:64px;line-height:.6;color:var(--accent);opacity:.85;margin-bottom:6px}
   #quoteText{
     font-family:'Noto Serif TC',serif;font-weight:700;color:#fff;
@@ -126,13 +131,14 @@
   textarea{min-height:74px;line-height:1.6}
   .row{display:flex;gap:9px;flex-wrap:wrap}
   .btn{
-    flex:1;min-width:72px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
-    padding:10px 12px;border-radius:var(--radius-sm);font-family:'Noto Sans TC',sans-serif;font-size:13.5px;cursor:pointer;
-    transition:.15s;letter-spacing:.5px;white-space:nowrap;
+    flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    padding:10px 10px;border-radius:var(--radius-sm);font-family:'Noto Sans TC',sans-serif;
+    font-size:clamp(11px,3.4vw,13.5px);cursor:pointer;
+    transition:.15s;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
   }
   .btn:hover{border-color:var(--accent);color:var(--accent-2);background:var(--panel-3)}
   .btn:active{transform:scale(.97)}
-  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#1a1308;border:none;font-weight:700;font-size:14.5px}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#1a1308;border:none;font-weight:700;font-size:clamp(12px,3.8vw,14.5px)}
   .btn.primary:hover{filter:brightness(1.08)}
   .toolbar{display:flex;gap:10px;margin-top:14px}
   .toolbar .btn.primary{flex:2}
@@ -184,6 +190,8 @@
           </div>
           <div class="overlay" id="overlay"></div>
           <div class="grain"></div>
+          <div class="guide guide-v" id="guideV"></div>
+          <div class="guide guide-h" id="guideH"></div>
           <div class="hint-bar">✋ 拖曳文字移動 · 拖右下角圓點縮放（手機可雙指縮放）</div>
           <div class="content" id="content">
             <div class="mark">"</div>
@@ -196,7 +204,7 @@
       </div>
     </div>
     <div class="toolbar">
-      <button class="btn primary" id="downloadBtn">⬇ 下載 1080×1080</button>
+      <button class="btn primary" id="downloadBtn">下載 1080px</button>
       <button class="btn" id="randomBtn">🎲 隨機</button>
       <button class="btn" id="fitBtn">↻ 自動排版</button>
     </div>
@@ -635,6 +643,8 @@ document.getElementById('fitBtn').addEventListener('click',()=>{
 });
 
 // ===== DRAG TO MOVE =====
+const guideV=document.getElementById('guideV'), guideH=document.getElementById('guideH');
+const SNAP=2.2; // snap threshold in % of canvas
 let dragging=false,startX,startY,startCx,startCy;
 function pointerDown(e){
   if(e.target===resizeHandle)return; // handled by resize
@@ -650,11 +660,21 @@ function pointerMove(e){
   const b=blockPct();
   const dx=(pt.clientX-startX)/rect.width*100;
   const dy=(pt.clientY-startY)/rect.height*100;
-  state.cx=Math.max(0,Math.min(100-b.w,startCx+dx));
-  state.cy=Math.max(0,Math.min(100-b.h,startCy+dy));
+  let nx=Math.max(0,Math.min(100-b.w,startCx+dx));
+  let ny=Math.max(0,Math.min(100-b.h,startCy+dy));
+  // centers of the block
+  const blockCenterX=nx+b.w/2, blockCenterY=ny+b.h/2;
+  // vertical centerline (x=50): snap block horizontal center
+  if(Math.abs(blockCenterX-50)<SNAP){nx=50-b.w/2;guideV.classList.add('show');}
+  else guideV.classList.remove('show');
+  // horizontal centerline (y=50): snap block vertical center
+  if(Math.abs(blockCenterY-50)<SNAP){ny=50-b.h/2;guideH.classList.add('show');}
+  else guideH.classList.remove('show');
+  state.cx=nx;state.cy=ny;
   applyPos();e.preventDefault();
 }
 function pointerUp(){if(!dragging)return;dragging=false;content.classList.remove('dragging');
+  guideV.classList.remove('show');guideH.classList.remove('show');
   setTimeout(()=>content.classList.remove('editing'),600);}
 content.addEventListener('mousedown',pointerDown);
 window.addEventListener('mousemove',pointerMove);
@@ -853,12 +873,29 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     ctx.fillStyle=state.accent;ctx.font=`500 ${authorFs}px 'Noto Sans TC',sans-serif`;
     const authorStr='— '+authorText.textContent.replace(/^—\s*/,'');
     drawLS(authorStr,tx,y);
-    // export
-    const a=document.createElement('a');
-    a.download='金句_'+Date.now()+'.png';
-    a.href=c.toDataURL('image/png');a.click();
+    // export — try Web Share (lets iOS/Android "Save to Photos / 儲存影像"); fallback to download
     const btn=document.getElementById('downloadBtn');const orig=btn.textContent;
-    btn.textContent='✓ 已下載';setTimeout(()=>btn.textContent=orig,1500);
+    const fname='金句_'+Date.now()+'.png';
+    c.toBlob(async(blob)=>{
+      if(!blob){return;}
+      const file=new File([blob],fname,{type:'image/png'});
+      const canShareFile = navigator.canShare && navigator.canShare({files:[file]});
+      if(canShareFile){
+        try{
+          await navigator.share({files:[file],title:'IG 金句圖'});
+          btn.textContent='✓ 已分享';setTimeout(()=>btn.textContent=orig,1500);
+          return;
+        }catch(err){
+          // user cancelled or share failed → fall through to download
+          if(err && err.name==='AbortError'){btn.textContent=orig;return;}
+        }
+      }
+      // desktop / no share support: normal download
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');a.download=fname;a.href=url;a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),2000);
+      btn.textContent='✓ 已下載';setTimeout(()=>btn.textContent=orig,1500);
+    },'image/png');
   };
   if(state.hasImg && bgImg.src && !bgImg.complete){bgImg.onload=draw;}else draw();
 });
