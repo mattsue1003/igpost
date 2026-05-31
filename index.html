@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IG 名人金句圖文生成器</title>
+<title>名人金句方形圖文生成器</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
@@ -37,9 +37,10 @@
     text-align:center;padding:30px 16px 10px;
   }
   header h1{
-    font-family:'Noto Serif TC',serif;font-weight:900;font-size:25px;letter-spacing:2px;
+    font-family:'Noto Serif TC',serif;font-weight:900;font-size:clamp(17px,5.2vw,26px);letter-spacing:1px;
     background:linear-gradient(90deg,var(--accent),var(--accent-2));
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    white-space:nowrap;
   }
   header p{color:var(--muted);font-size:12.5px;margin-top:6px;letter-spacing:1px}
   .wrap{
@@ -140,6 +141,21 @@
   .btn.primary:hover{filter:brightness(1.08)}
   .toolbar{display:flex;gap:10px;margin-top:14px}
   .toolbar .btn.primary{flex:2}
+  /* quick resize/mode bar under preview */
+  .quickbar{display:flex;gap:10px;margin-top:10px;align-items:center;justify-content:space-between;
+    background:var(--panel);border:1px solid var(--line);border-radius:var(--radius-sm);padding:8px 10px}
+  .qb-seg{display:flex;gap:4px;background:var(--panel-2);border-radius:10px;padding:3px}
+  .qb-btn{border:none;background:transparent;color:var(--muted);font-family:'Noto Sans TC',sans-serif;
+    font-size:13px;padding:7px 12px;border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
+  .qb-btn.active{background:var(--accent);color:#1a1308;font-weight:700}
+  .qb-btn:disabled{opacity:.4;cursor:not-allowed}
+  .qb-size{display:flex;align-items:center;gap:10px}
+  .qb-label{font-size:12.5px;color:var(--accent-2);min-width:70px;text-align:center;font-variant-numeric:tabular-nums}
+  .qb-round{width:38px;height:38px;border-radius:50%;border:1px solid var(--line-2);background:var(--panel-2);
+    color:var(--accent-2);font-size:22px;line-height:1;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center}
+  .qb-round:hover{border-color:var(--accent);background:var(--panel-3)}
+  .qb-round:active{transform:scale(.92)}
+  @media(max-width:880px){.quickbar{max-width:340px;margin-left:auto;margin-right:auto}}
   .file-label{display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line-2);border-radius:var(--radius-sm);padding:20px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:.18s}
   .file-label:hover{border-color:var(--accent);color:var(--accent-2);background:rgba(212,168,87,.04)}
   .file-label .big{font-size:22px}
@@ -173,7 +189,7 @@
 </head>
 <body>
 <header>
-  <h1>名人金句 · IG 圖文生成器</h1>
+  <h1>名人金句方形圖文生成器</h1>
   <p>深色大圖流 · 1:1 正方形 · 內建 100 句</p>
 </header>
 
@@ -204,6 +220,17 @@
       <button class="btn primary" id="downloadBtn">下載 1080px</button>
       <button class="btn" id="randomBtn">🎲 隨機</button>
       <button class="btn" id="fitBtn">↻ 自動排版</button>
+    </div>
+    <div class="quickbar" id="quickbar">
+      <div class="qb-seg" id="qbMode">
+        <button class="qb-btn active" data-target="text">✎ 文字</button>
+        <button class="qb-btn" data-target="photo" id="qbPhotoTab" disabled>📷 照片</button>
+      </div>
+      <div class="qb-size">
+        <button class="qb-round" id="qbMinus" aria-label="縮小">−</button>
+        <span class="qb-label" id="qbLabel">字級 34</span>
+        <button class="qb-round" id="qbPlus" aria-label="放大">＋</button>
+      </div>
     </div>
   </div>
 
@@ -453,6 +480,8 @@ function applyImgTransform(){
 function setDragMode(mode){
   state.dragMode=mode;
   document.querySelectorAll('#dragModeGrp .btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  document.querySelectorAll('#qbMode .qb-btn').forEach(b=>b.classList.toggle('active',b.dataset.target===mode));
+  window.qbTarget=mode;
   board.classList.toggle('photomode',mode==='photo');
 }
 
@@ -498,7 +527,9 @@ function setGradient(key){
   document.querySelectorAll('[data-grad]').forEach(b=>b.classList.toggle('active',b.dataset.grad===key));
   // hide photo controls + exit photo mode
   document.getElementById('photoCtrls').style.display='none';
+  const pt=document.getElementById('qbPhotoTab');if(pt)pt.disabled=true;
   setDragMode('text');
+  if(typeof qbUpdateLabel==='function')qbUpdateLabel();
 }
 setGradient('plum');
 
@@ -520,6 +551,9 @@ document.getElementById('bgUpload').addEventListener('change',e=>{
     state.imgX=0;state.imgY=0;state.imgZoom=1;
     document.getElementById('zoom').value=100;document.getElementById('zoomVal').textContent='100';
     applyImgTransform();
+    // enable the quick "照片" tab now that an image exists
+    const pt=document.getElementById('qbPhotoTab');if(pt)pt.disabled=false;
+    if(typeof qbUpdateLabel==='function')qbUpdateLabel();
   };
   r.readAsDataURL(f);
 });
@@ -601,6 +635,7 @@ function setFontSize(v,fromUser){
   // scale the whole group together: author + divider follow the quote size
   setAuthorSize(v*R_AUTHOR);
   applyDivider(v);
+  if(typeof qbUpdateLabel==='function')qbUpdateLabel();
   if(fromUser!==false)clampPos();
 }
 fontSizeSlider.addEventListener('input',e=>setFontSize(+e.target.value));
@@ -734,14 +769,15 @@ window.addEventListener('touchend',pointerUp);
 
 // ===== PHOTO drag + zoom controls =====
 document.querySelectorAll('#dragModeGrp .btn').forEach(b=>b.addEventListener('click',()=>setDragMode(b.dataset.mode)));
-document.getElementById('zoom').addEventListener('input',e=>{
-  state.imgZoom=+e.target.value/100;document.getElementById('zoomVal').textContent=e.target.value;
-  clampImg();applyImgTransform();
-});
+const zoomSlider=document.getElementById('zoom');
+function setZoom(pct){
+  pct=Math.max(+zoomSlider.min,Math.min(+zoomSlider.max,Math.round(pct)));
+  state.imgZoom=pct/100;zoomSlider.value=pct;document.getElementById('zoomVal').textContent=pct;
+  clampImg();applyImgTransform();qbUpdateLabel();
+}
+zoomSlider.addEventListener('input',e=>setZoom(+e.target.value));
 document.getElementById('resetPhoto').addEventListener('click',()=>{
-  state.imgX=0;state.imgY=0;state.imgZoom=1;
-  document.getElementById('zoom').value=100;document.getElementById('zoomVal').textContent='100';
-  applyImgTransform();
+  state.imgX=0;state.imgY=0;setZoom(100);applyImgTransform();
 });
 // keep pan within sensible bounds based on the rendered (contain) image size & zoom
 function imgRenderInfo(){
@@ -791,6 +827,53 @@ board.addEventListener('touchstart',photoDown,{passive:false});
 window.addEventListener('touchmove',photoMove,{passive:false});
 window.addEventListener('touchend',photoUp);
 
+// mouse wheel zooms the photo when in photo mode
+board.addEventListener('wheel',e=>{
+  if(state.dragMode!=='photo'||!state.hasImg)return;
+  e.preventDefault();
+  setZoom(state.imgZoom*100 + (e.deltaY<0?6:-6));
+},{passive:false});
+
+// two-finger pinch zooms the photo when in photo mode
+let photoPinchDist=0,photoPinchZoom=0;
+function pDist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.hypot(dx,dy);}
+board.addEventListener('touchstart',e=>{
+  if(state.dragMode==='photo'&&state.hasImg&&e.touches.length===2){
+    pDrag=false;photoPinchDist=pDist(e.touches);photoPinchZoom=state.imgZoom;e.preventDefault();
+  }
+},{passive:false});
+board.addEventListener('touchmove',e=>{
+  if(state.dragMode==='photo'&&e.touches.length===2&&photoPinchDist){
+    const ratio=pDist(e.touches)/photoPinchDist;
+    setZoom(photoPinchZoom*100*ratio);e.preventDefault();
+  }
+},{passive:false});
+board.addEventListener('touchend',e=>{if(e.touches.length<2)photoPinchDist=0;});
+
+// ===== QUICK BAR: mode toggle + big +/− to resize active target =====
+window.qbTarget=window.qbTarget||'text';
+function qbUpdateLabel(){
+  const lbl=document.getElementById('qbLabel');if(!lbl)return;
+  if(window.qbTarget==='photo') lbl.textContent='縮放 '+Math.round(state.imgZoom*100)+'%';
+  else lbl.textContent='字級 '+state.fontSize;
+}
+function qbSetTarget(t){
+  if(t==='photo'&&!state.hasImg)return;
+  window.qbTarget=t;
+  document.querySelectorAll('#qbMode .qb-btn').forEach(b=>b.classList.toggle('active',b.dataset.target===t));
+  setDragMode(t); // also switches what the canvas drag moves
+  qbUpdateLabel();
+}
+document.querySelectorAll('#qbMode .qb-btn').forEach(b=>b.addEventListener('click',()=>qbSetTarget(b.dataset.target)));
+document.getElementById('qbPlus').addEventListener('click',()=>{
+  if(window.qbTarget==='photo')setZoom(state.imgZoom*100+8); else setFontSize(state.fontSize+2);
+  qbUpdateLabel();
+});
+document.getElementById('qbMinus').addEventListener('click',()=>{
+  if(window.qbTarget==='photo')setZoom(state.imgZoom*100-8); else setFontSize(state.fontSize-2);
+  qbUpdateLabel();
+});
+
 // ===== RESIZE via corner handle (mouse/touch drag) =====
 const resizeHandle=document.getElementById('resizeHandle');
 let resizing=false,rStartY,rStartFs;
@@ -833,6 +916,7 @@ content.addEventListener('touchend',e=>{if(e.touches.length<2){pinchStartDist=0;
 // init position (bottom-left, clamped)
 setAlign('left');
 applyDivider(state.fontSize);
+qbUpdateLabel();
 requestAnimationFrame(()=>{const b=blockPct();state.cx=8;state.cy=Math.max(8,100-b.h-7);applyPos();});
 
 // swatches (main accent color) — scoped to its own container
@@ -985,14 +1069,20 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
       }
     }
 
-    // --- quote mark: place glyph baseline using the mark element's measured box ---
+    // --- quote mark: align glyph visual box to the mark element's measured box (matches preview) ---
     const markFs=state.fontSize*2.2*scale;
     ctx.save();ctx.fillStyle=state.accent;ctx.globalAlpha=.85;
     ctx.font=`italic ${markFs}px "Playfair Display",serif`;
-    // baseline ≈ mark box top + ~0.72 of its font size (Playfair cap area)
-    const markBaseline=mRect.y + markFs*0.72;
-    const markX=centered?ax:leftX;
     ctx.textAlign=centered?'center':'left';
+    // measure the glyph's real ascent/descent so we can centre it inside the mark element box
+    const mm=ctx.measureText('"');
+    const gAsc=(mm.actualBoundingBoxAscent||markFs*0.7);
+    const gDesc=(mm.actualBoundingBoxDescent||0);
+    const glyphH=gAsc+gDesc;
+    // mark element's box centre in canvas space; place glyph centre there
+    const markBoxCenter=mRect.y + mRect.h/2;
+    const markBaseline=markBoxCenter + glyphH/2 - gDesc;
+    const markX=centered?ax:leftX;
     ctx.fillText('"',markX,markBaseline);
     ctx.restore();
     ctx.textAlign='left';
@@ -1041,7 +1131,15 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
       btn.textContent='✓ 已下載';setTimeout(()=>btn.textContent=orig,1500);
     },'image/png');
   };
-  if(state.hasImg && bgImg.src && !bgImg.complete){bgImg.onload=draw;}else draw();
+  const runDraw=()=>{ if(state.hasImg && bgImg.src && !bgImg.complete){bgImg.onload=draw;}else draw(); };
+  // make sure the webfonts (esp. Playfair Display for the " mark) are loaded so canvas matches preview
+  if(document.fonts && document.fonts.ready){
+    Promise.all([
+      document.fonts.load('italic 80px "Playfair Display"'),
+      document.fonts.load('700 40px "Noto Serif TC"'),
+      document.fonts.load('500 20px "Noto Sans TC"')
+    ]).then(()=>document.fonts.ready).then(runDraw).catch(runDraw);
+  }else{ runDraw(); }
 });
 </script>
 </body>
