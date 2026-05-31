@@ -115,6 +115,7 @@
     font-family:'Noto Serif TC',serif;font-weight:700;color:#fff;
     font-size:34px;line-height:1.5;letter-spacing:1px;
     text-shadow:0 2px 18px rgba(0,0,0,.6);
+    white-space:pre-wrap;word-break:break-word;
   }
   .divider{width:46px;height:3px;background:var(--accent);margin:18px 0 12px;border-radius:2px}
   #authorText{font-family:'Noto Sans TC',sans-serif;font-weight:500;color:var(--accent-2);font-size:18px;letter-spacing:2px}
@@ -659,11 +660,15 @@ document.getElementById('fitBtn').addEventListener('click',()=>{
   const meas=document.createElement('canvas').getContext('2d');
   function linesAt(fs){
     meas.font=`700 ${fs}px ${state.font}`;
-    const chars=text.split('');let line='',n=1;
-    for(const ch of chars){
-      if(meas.measureText(line+ch).width>blockPx&&line){n++;line=ch;}else line+=ch;
-    }
-    return n;
+    let n=0;
+    quoteText.textContent.split('\n').forEach(para=>{
+      if(para===''){n++;return;}
+      let line='';n++;
+      for(const ch of para.split('')){
+        if(meas.measureText(line+ch).width>blockPx&&line){n++;line=ch;}else line+=ch;
+      }
+    });
+    return Math.max(1,n);
   }
   // target: keep quote block within ~60% of canvas height
   const maxBlockH=br.height*0.58;
@@ -915,14 +920,18 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     const padInner=6*scale; // matches .content padding
     const LS=1*scale;       // letter-spacing:1px in preview, scaled
     const maxW=blockW-padInner*2;
-    // wrap text (account for letter-spacing so wrapping matches preview)
+    // wrap text (respect manual line breaks, then auto-wrap each paragraph; account for letter-spacing)
     ctx.font=`700 ${fs}px ${state.font}`;
     function lineW(str){return ctx.measureText(str).width + Math.max(0,str.length-1)*LS;}
-    const chars=quoteText.textContent.split('');const lines=[];let line='';
-    chars.forEach(ch=>{
-      if(lineW(line+ch)>maxW&&line){lines.push(line);line=ch;}else line+=ch;
+    const lines=[];
+    quoteText.textContent.split('\n').forEach(para=>{
+      if(para===''){lines.push('');return;} // keep empty line from double-enter
+      let line='';
+      for(const ch of para.split('')){
+        if(lineW(line+ch)>maxW&&line){lines.push(line);line=ch;}else line+=ch;
+      }
+      lines.push(line);
     });
-    if(line)lines.push(line);
     // helper: draw a string with manual letter-spacing
     function drawLS(str,x,yy){
       if(!centered){let cx=x;for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+LS;}}
