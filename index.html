@@ -307,9 +307,9 @@
     <div class="panel sliders">
       <h2>文字樣式</h2>
       <label>金句字級 <span id="fsVal">34</span>px</label>
-      <input type="range" id="fontSize" min="18" max="72" value="34">
+      <input type="range" id="fontSize" min="10" max="72" value="34">
       <label>署名字級 <span id="afsVal">18</span>px</label>
-      <input type="range" id="authorSize" min="12" max="34" value="18">
+      <input type="range" id="authorSize" min="6" max="34" value="18">
       <label>行距 <span id="lhVal">1.5</span></label>
       <input type="range" id="lineH" min="120" max="220" value="150">
       <label>主色調</label>
@@ -318,6 +318,7 @@
       <div class="align-grp" id="alignGrp">
         <button class="btn active" data-align="left">靠左</button>
         <button class="btn" data-align="center">置中</button>
+        <button class="btn" data-align="right">靠右</button>
       </div>
       <label>字體</label>
       <div class="align-grp" id="fontGrp">
@@ -678,7 +679,8 @@ function applyPos(){content.style.setProperty('--cx',state.cx+'%');content.style
 
 function setAlign(a){
   state.align=a;
-  content.style.textAlign=a;content.style.alignItems=a==='center'?'center':'flex-start';
+  content.style.textAlign=a==='right'?'right':(a==='center'?'center':'left');
+  content.style.alignItems=a==='center'?'center':(a==='right'?'flex-end':'flex-start');
   document.querySelectorAll('#alignGrp .btn').forEach(x=>x.classList.toggle('active',x.dataset.align===a));
 }
 document.getElementById('resetPos').addEventListener('click',()=>{
@@ -715,8 +717,8 @@ document.getElementById('fitBtn').addEventListener('click',()=>{
   }
   // target: keep quote block within ~60% of canvas height
   const maxBlockH=br.height*0.58;
-  let best=18;
-  for(let fs=72;fs>=18;fs-=1){
+  let best=10;
+  for(let fs=72;fs>=10;fs-=1){
     const n=linesAt(fs);
     const h=n*fs*state.lineH + fs*2.2*0.6 + 40; // quote lines + mark + divider/author
     if(h<=maxBlockH && fs<=64){best=fs;break;}
@@ -1023,7 +1025,6 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     // ===== text: anchor to the REAL preview DOM geometry so download matches preview =====
     const boardRect=board.getBoundingClientRect();
     const scale=S/boardRect.width;
-    const centered=state.align==='center';
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
     const fs=state.fontSize*scale;
     const authorFs=state.authorSize*scale;
@@ -1042,11 +1043,14 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     const dRect=rectInCanvas(divider);
     const aRect=rectInCanvas(authorText);
 
-    // text x anchor: left edge of quote text (or its centre when centered)
+    // text x anchor: depends on alignment
     const leftX=qRect.x;
+    const rightX=qRect.right;
     const blockW=qRect.w;
     const maxW=blockW;
-    const ax=centered?leftX+blockW/2:leftX;
+    const centered=state.align==='center';
+    const rightAligned=state.align==='right';
+    const ax = centered ? leftX+blockW/2 : (rightAligned ? rightX : leftX);
 
     ctx.font=`700 ${fs}px ${state.font}`;
     function lineW(str,ls){ls=ls==null?LS:ls;return ctx.measureText(str).width + Math.max(0,str.length-1)*ls;}
@@ -1060,29 +1064,28 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
       }
       lines.push(line);
     });
+    // draw a line with manual letter-spacing, honoring alignment (anchor = x)
     function drawLS(str,x,yy,ls){
       ls=ls==null?LS:ls;
-      if(!centered){let cx=x;for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+ls;}}
-      else{
-        const total=lineW(str,ls);let cx=x-total/2;
-        for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+ls;}
-      }
+      const total=lineW(str,ls);
+      let cx = centered ? x-total/2 : (rightAligned ? x-total : x);
+      for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+ls;}
     }
 
     // --- quote mark: align glyph visual box to the mark element's measured box (matches preview) ---
     const markFs=state.fontSize*2.2*scale;
     ctx.save();ctx.fillStyle=state.accent;ctx.globalAlpha=.85;
     ctx.font=`italic ${markFs}px "Playfair Display",serif`;
-    ctx.textAlign=centered?'center':'left';
-    // measure the glyph's real ascent/descent so we can centre it inside the mark element box
+    ctx.textAlign='left';
     const mm=ctx.measureText('"');
     const gAsc=(mm.actualBoundingBoxAscent||markFs*0.7);
     const gDesc=(mm.actualBoundingBoxDescent||0);
     const glyphH=gAsc+gDesc;
-    // mark element's box centre in canvas space; place glyph centre there
+    const markGlyphW=mm.width;
     const markBoxCenter=mRect.y + mRect.h/2;
     const markBaseline=markBoxCenter + glyphH/2 - gDesc;
-    const markX=centered?ax:leftX;
+    // mark x: left edge for left align, centred for center, right edge for right
+    const markX = centered ? ax-markGlyphW/2 : (rightAligned ? rightX-markGlyphW : leftX);
     ctx.fillText('"',markX,markBaseline);
     ctx.restore();
     ctx.textAlign='left';
@@ -1090,7 +1093,6 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     // --- quote lines: first line baseline anchored to quoteText element top ---
     ctx.fillStyle='#fff';ctx.font=`700 ${fs}px ${state.font}`;
     ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=18*scale;ctx.shadowOffsetY=2*scale;
-    // baseline of first line = quote top + ascent (~0.82*fs within the line box of height lh)
     const firstBaseline=qRect.y + (lh - fs)/2 + fs*0.82;
     let y=firstBaseline;
     lines.forEach((l,i)=>{ if(i>0) y+=lh; drawLS(l,ax,y); });
@@ -1099,7 +1101,7 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     // --- divider: use measured rect exactly ---
     ctx.fillStyle=state.accent;
     const dW=dRect.w||(46*scale), dH=dRect.h||(3*scale);
-    const dX=centered?ax-dW/2:leftX;
+    const dX = centered ? ax-dW/2 : (rightAligned ? rightX-dW : leftX);
     ctx.fillRect(dX,dRect.y,dW,dH);
 
     // --- author: baseline from author element ---
