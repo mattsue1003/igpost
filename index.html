@@ -425,7 +425,7 @@ const bgWrap=document.getElementById('bgWrap');
 
 let state={dark:55,accent:'#d4a857',align:'left',font:"'Noto Serif TC',serif",fontSize:34,
   authorSize:18,lineH:1.5,cw:82,cx:9,cy:55,ovOpacity:1,bright:1,
-  gradKey:'dark',hasImg:false,
+  gradKey:'plum',hasImg:false,
   ovDir:'bottom',ovPos:55,ovColor:'0,0,0'};
 
 // ===== overlay gradient builder (shared by preview + export) =====
@@ -469,7 +469,7 @@ function setGradient(key){
   document.getElementById('fileLabelText').textContent='點此上傳圖片（建議正方形）';
   document.querySelectorAll('[data-grad]').forEach(b=>b.classList.toggle('active',b.dataset.grad===key));
 }
-setGradient('dark');
+setGradient('plum');
 
 // text bindings (clamp because height may change)
 inQuote.addEventListener('input',()=>{quoteText.textContent=inQuote.value;clampPos();});
@@ -607,11 +607,31 @@ document.getElementById('centerPos').addEventListener('click',()=>{
 
 // auto-layout: pick a sensible size + bottom-left placement based on text length
 document.getElementById('fitBtn').addEventListener('click',()=>{
-  const len=quoteText.textContent.length;
-  let fs = len<=10?54 : len<=18?44 : len<=30?36 : len<=45?30 : 26;
-  setFontSize(fs,false);
+  const text=quoteText.textContent.trim();
+  if(!text){return;}
+  const br=board.getBoundingClientRect();
+  const blockPx=br.width*state.cw/100 - 12; // minus inner padding
+  // binary-ish search: largest font where wrapped block height stays reasonable
+  const meas=document.createElement('canvas').getContext('2d');
+  function linesAt(fs){
+    meas.font=`700 ${fs}px ${state.font}`;
+    const chars=text.split('');let line='',n=1;
+    for(const ch of chars){
+      if(meas.measureText(line+ch).width>blockPx&&line){n++;line=ch;}else line+=ch;
+    }
+    return n;
+  }
+  // target: keep quote block within ~60% of canvas height
+  const maxBlockH=br.height*0.58;
+  let best=18;
+  for(let fs=72;fs>=18;fs-=1){
+    const n=linesAt(fs);
+    const h=n*fs*state.lineH + fs*2.2*0.6 + 40; // quote lines + mark + divider/author
+    if(h<=maxBlockH && fs<=64){best=fs;break;}
+  }
+  setFontSize(best,false);
   setAlign('left');state.cx=8;
-  requestAnimationFrame(()=>{const b=blockPct();state.cy=Math.max(8,100-b.h-7);applyPos();});
+  requestAnimationFrame(()=>{const b=blockPct();state.cy=Math.max(7,100-b.h-7);clampPos();});
 });
 
 // ===== DRAG TO MOVE =====
@@ -786,18 +806,35 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     const authorFs=state.authorSize*scale;
     const lh=fs*state.lineH;
     const padInner=6*scale; // matches .content padding
+    const LS=1*scale;       // letter-spacing:1px in preview, scaled
     const maxW=blockW-padInner*2;
-    // wrap text
+    // wrap text (account for letter-spacing so wrapping matches preview)
     ctx.font=`700 ${fs}px ${state.font}`;
+    function lineW(str){return ctx.measureText(str).width + Math.max(0,str.length-1)*LS;}
     const chars=quoteText.textContent.split('');const lines=[];let line='';
     chars.forEach(ch=>{
-      if(ctx.measureText(line+ch).width>maxW&&line){lines.push(line);line=ch;}else line+=ch;
+      if(lineW(line+ch)>maxW&&line){lines.push(line);line=ch;}else line+=ch;
     });
     if(line)lines.push(line);
+    // helper: draw a string with manual letter-spacing
+    function drawLS(str,x,yy){
+      if(!centered){let cx=x;for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+LS;}}
+      else{
+        const total=lineW(str);let cx=x-total/2;const sv=ctx.textAlign;ctx.textAlign='left';
+        for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+LS;}
+        ctx.textAlign=sv;
+      }
+    }
     const markH=lh*0.9;
-    const dividerGap=18*scale, dividerH=4, authorGap=20*scale;
-    let y=blockY+padInner+markH;
+    const dividerGap=18*scale, dividerH=4*scale, authorGap=20*scale;
+    // total block height, then clamp so it never overflows the canvas
+    const blockH = markH + lh*0.55 + lines.length*lh + dividerGap + dividerH + authorGap + authorFs;
+    const margin=S*0.04;
+    let topY=blockY+padInner;
+    if(topY+blockH > S-margin) topY = S-margin-blockH;
+    if(topY < margin) topY = margin;
     const tx=centered?ax:ax+padInner;
+    let y=topY+markH;
     // quote mark
     ctx.save();ctx.fillStyle=state.accent;ctx.globalAlpha=.85;
     ctx.font=`italic ${fs*2.2}px "Playfair Display",serif`;
@@ -805,16 +842,17 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     y+=lh*0.55;
     // quote lines
     ctx.fillStyle='#fff';ctx.font=`700 ${fs}px ${state.font}`;
-    ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=18;ctx.shadowOffsetY=2;
-    lines.forEach(l=>{y+=lh;ctx.fillText(l,tx,y);});
+    ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=18*scale;ctx.shadowOffsetY=2*scale;
+    lines.forEach(l=>{y+=lh;drawLS(l,tx,y);});
     ctx.shadowColor='transparent';
     // divider
     y+=dividerGap;ctx.fillStyle=state.accent;
-    if(centered)ctx.fillRect(tx-23,y,46,dividerH);else ctx.fillRect(tx,y,46,dividerH);
+    if(centered)ctx.fillRect(tx-23*scale,y,46*scale,dividerH);else ctx.fillRect(tx,y,46*scale,dividerH);
     // author
     y+=dividerH+authorGap+authorFs;
     ctx.fillStyle=state.accent;ctx.font=`500 ${authorFs}px 'Noto Sans TC',sans-serif`;
-    ctx.fillText('— '+authorText.textContent.replace(/^—\s*/,''),tx,y);
+    const authorStr='— '+authorText.textContent.replace(/^—\s*/,'');
+    drawLS(authorStr,tx,y);
     // export
     const a=document.createElement('a');
     a.download='金句_'+Date.now()+'.png';
