@@ -97,14 +97,7 @@
   }
   .resize-handle::before{content:"⤡";font-size:12px;color:#1a1308;font-weight:700;line-height:1}
   .content:hover .resize-handle,.content.editing .resize-handle{opacity:1}
-  .hint-bar{
-    position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
-    background:rgba(10,10,12,.72);color:#fff;font-size:11px;padding:6px 14px;border-radius:20px;
-    letter-spacing:.5px;pointer-events:none;opacity:0;transition:.3s;backdrop-filter:blur(6px);z-index:7;
-    white-space:nowrap;border:1px solid rgba(255,255,255,.1);
-  }
-  .canvas-shell:hover .hint-bar{opacity:1}
-  @media(max-width:880px){.resize-handle{opacity:1;width:26px;height:26px}.hint-bar{opacity:1}}
+  @media(max-width:880px){.resize-handle{opacity:1;width:26px;height:26px}}
   .guide{position:absolute;background:var(--accent-2);opacity:0;pointer-events:none;z-index:6;
     transition:opacity .12s;box-shadow:0 0 6px rgba(232,201,135,.7)}
   .guide.show{opacity:.9}
@@ -117,7 +110,7 @@
     text-shadow:0 2px 18px rgba(0,0,0,.6);
     white-space:pre-wrap;word-break:break-word;
   }
-  .divider{width:46px;height:3px;background:var(--accent);margin:18px 0 12px;border-radius:2px}
+  .divider{width:var(--divW,46px);height:var(--divH,3px);background:var(--accent);margin:var(--divMT,18px) 0 var(--divMB,12px);border-radius:2px}
   #authorText{font-family:'Noto Sans TC',sans-serif;font-weight:500;color:var(--accent-2);font-size:18px;letter-spacing:2px}
   /* controls */
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px;
@@ -197,7 +190,6 @@
           <div class="grain"></div>
           <div class="guide guide-v" id="guideV"></div>
           <div class="guide guide-h" id="guideH"></div>
-          <div class="hint-bar">✋ 拖曳文字移動 · 拖右下角圓點縮放（手機可雙指縮放）</div>
           <div class="content" id="content">
             <div class="mark">"</div>
             <div id="quoteText">點選下方金句，或自行輸入文字</div>
@@ -585,20 +577,37 @@ applyOverlay();
 
 // ===== font size (with helper so resize/pinch can reuse) =====
 const fontSizeSlider=document.getElementById('fontSize');
+const authorSlider=document.getElementById('authorSize');
+// ratios relative to quote font size (anchored at defaults: quote 34, author 18, divider 46x3)
+const R_AUTHOR=18/34, R_DIVW=46/34, R_DIVH=3/34;
+function applyDivider(qfs){
+  const w=Math.max(24,qfs*R_DIVW), h=Math.max(2,qfs*R_DIVH);
+  divider.style.setProperty('--divW',w+'px');
+  divider.style.setProperty('--divH',h+'px');
+  divider.style.setProperty('--divMT',(qfs*0.5)+'px');
+  divider.style.setProperty('--divMB',(qfs*0.34)+'px');
+}
+function setAuthorSize(v){
+  v=Math.max(+authorSlider.min,Math.min(+authorSlider.max,Math.round(v)));
+  state.authorSize=v;document.getElementById('afsVal').textContent=v;
+  authorSlider.value=v;authorText.style.fontSize=v+'px';
+}
 function setFontSize(v,fromUser){
   v=Math.max(+fontSizeSlider.min,Math.min(+fontSizeSlider.max,Math.round(v)));
   state.fontSize=v;document.getElementById('fsVal').textContent=v;
   fontSizeSlider.value=v;
   quoteText.style.fontSize=v+'px';
   mark.style.fontSize=(v*2.2)+'px';
+  // scale the whole group together: author + divider follow the quote size
+  setAuthorSize(v*R_AUTHOR);
+  applyDivider(v);
   if(fromUser!==false)clampPos();
 }
 fontSizeSlider.addEventListener('input',e=>setFontSize(+e.target.value));
 
-// author size
-document.getElementById('authorSize').addEventListener('input',e=>{
-  state.authorSize=+e.target.value;document.getElementById('afsVal').textContent=e.target.value;
-  authorText.style.fontSize=state.authorSize+'px';clampPos();
+// author size (manual override — keeps its own value, doesn't move quote)
+authorSlider.addEventListener('input',e=>{
+  setAuthorSize(+e.target.value);clampPos();
 });
 
 // line height
@@ -823,6 +832,7 @@ content.addEventListener('touchend',e=>{if(e.touches.length<2){pinchStartDist=0;
 
 // init position (bottom-left, clamped)
 setAlign('left');
+applyDivider(state.fontSize);
 requestAnimationFrame(()=>{const b=blockPct();state.cx=8;state.cy=Math.max(8,100-b.h-7);applyPos();});
 
 // swatches (main accent color) — scoped to its own container
