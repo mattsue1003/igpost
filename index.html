@@ -926,67 +926,87 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     stops.forEach(s=>og.addColorStop(s.at/100,s.col));
     ctx.fillStyle=og;ctx.fillRect(0,0,S,S);
     ctx.restore();
-    // ===== text block positioned by drag (cx,cy = block top-left, cw = width) =====
-    const scale=S/board.clientWidth;
-    const blockX=S*state.cx/100, blockY=S*state.cy/100, blockW=S*state.cw/100;
+    // ===== text: anchor to the REAL preview DOM geometry so download matches preview =====
+    const boardRect=board.getBoundingClientRect();
+    const scale=S/boardRect.width;
     const centered=state.align==='center';
-    const ax=centered?blockX+blockW/2:blockX;ctx.textAlign=centered?'center':'left';
-    ctx.textBaseline='alphabetic';
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
     const fs=state.fontSize*scale;
     const authorFs=state.authorSize*scale;
     const lh=fs*state.lineH;
-    const padInner=6*scale; // matches .content padding
-    const LS=1*scale;       // letter-spacing:1px in preview, scaled
-    const maxW=blockW-padInner*2;
-    // wrap text (respect manual line breaks, then auto-wrap each paragraph; account for letter-spacing)
+    const LS=1*scale;       // letter-spacing:1px
+    const authorLS=2*scale; // author letter-spacing:2px
+
+    // measure helpers in canvas space
+    function rectInCanvas(el){
+      const r=el.getBoundingClientRect();
+      return {x:(r.left-boardRect.left)*scale, y:(r.top-boardRect.top)*scale,
+              w:r.width*scale, h:r.height*scale, right:(r.right-boardRect.left)*scale};
+    }
+    const qRect=rectInCanvas(quoteText);
+    const mRect=rectInCanvas(mark);
+    const dRect=rectInCanvas(divider);
+    const aRect=rectInCanvas(authorText);
+
+    // text x anchor: left edge of quote text (or its centre when centered)
+    const leftX=qRect.x;
+    const blockW=qRect.w;
+    const maxW=blockW;
+    const ax=centered?leftX+blockW/2:leftX;
+
     ctx.font=`700 ${fs}px ${state.font}`;
-    function lineW(str){return ctx.measureText(str).width + Math.max(0,str.length-1)*LS;}
+    function lineW(str,ls){ls=ls==null?LS:ls;return ctx.measureText(str).width + Math.max(0,str.length-1)*ls;}
+    // wrap (respect manual breaks + width) — same logic the preview uses
     const lines=[];
     quoteText.textContent.split('\n').forEach(para=>{
-      if(para===''){lines.push('');return;} // keep empty line from double-enter
+      if(para===''){lines.push('');return;}
       let line='';
       for(const ch of para.split('')){
         if(lineW(line+ch)>maxW&&line){lines.push(line);line=ch;}else line+=ch;
       }
       lines.push(line);
     });
-    // helper: draw a string with manual letter-spacing
-    function drawLS(str,x,yy){
-      if(!centered){let cx=x;for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+LS;}}
+    function drawLS(str,x,yy,ls){
+      ls=ls==null?LS:ls;
+      if(!centered){let cx=x;for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+ls;}}
       else{
-        const total=lineW(str);let cx=x-total/2;const sv=ctx.textAlign;ctx.textAlign='left';
-        for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+LS;}
-        ctx.textAlign=sv;
+        const total=lineW(str,ls);let cx=x-total/2;
+        for(const ch of str){ctx.fillText(ch,cx,yy);cx+=ctx.measureText(ch).width+ls;}
       }
     }
-    const markH=lh*0.9;
-    const dividerGap=18*scale, dividerH=4*scale, authorGap=20*scale;
-    // total block height, then clamp so it never overflows the canvas
-    const blockH = markH + lh*0.55 + lines.length*lh + dividerGap + dividerH + authorGap + authorFs;
-    const margin=S*0.04;
-    let topY=blockY+padInner;
-    if(topY+blockH > S-margin) topY = S-margin-blockH;
-    if(topY < margin) topY = margin;
-    const tx=centered?ax:ax+padInner;
-    let y=topY+markH;
-    // quote mark
+
+    // --- quote mark: place glyph baseline using the mark element's measured box ---
+    const markFs=state.fontSize*2.2*scale;
     ctx.save();ctx.fillStyle=state.accent;ctx.globalAlpha=.85;
-    ctx.font=`italic ${fs*2.2}px "Playfair Display",serif`;
-    ctx.fillText('"',tx,y);ctx.restore();
-    y+=lh*0.55;
-    // quote lines
+    ctx.font=`italic ${markFs}px "Playfair Display",serif`;
+    // baseline ≈ mark box top + ~0.72 of its font size (Playfair cap area)
+    const markBaseline=mRect.y + markFs*0.72;
+    const markX=centered?ax:leftX;
+    ctx.textAlign=centered?'center':'left';
+    ctx.fillText('"',markX,markBaseline);
+    ctx.restore();
+    ctx.textAlign='left';
+
+    // --- quote lines: first line baseline anchored to quoteText element top ---
     ctx.fillStyle='#fff';ctx.font=`700 ${fs}px ${state.font}`;
     ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=18*scale;ctx.shadowOffsetY=2*scale;
-    lines.forEach(l=>{y+=lh;drawLS(l,tx,y);});
-    ctx.shadowColor='transparent';
-    // divider
-    y+=dividerGap;ctx.fillStyle=state.accent;
-    if(centered)ctx.fillRect(tx-23*scale,y,46*scale,dividerH);else ctx.fillRect(tx,y,46*scale,dividerH);
-    // author
-    y+=dividerH+authorGap+authorFs;
+    // baseline of first line = quote top + ascent (~0.82*fs within the line box of height lh)
+    const firstBaseline=qRect.y + (lh - fs)/2 + fs*0.82;
+    let y=firstBaseline;
+    lines.forEach((l,i)=>{ if(i>0) y+=lh; drawLS(l,ax,y); });
+    ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+
+    // --- divider: use measured rect exactly ---
+    ctx.fillStyle=state.accent;
+    const dW=dRect.w||(46*scale), dH=dRect.h||(3*scale);
+    const dX=centered?ax-dW/2:leftX;
+    ctx.fillRect(dX,dRect.y,dW,dH);
+
+    // --- author: baseline from author element ---
     ctx.fillStyle=state.accent;ctx.font=`500 ${authorFs}px 'Noto Sans TC',sans-serif`;
+    const authorBaseline=aRect.y + aRect.h*0.5 + authorFs*0.36;
     const authorStr='— '+authorText.textContent.replace(/^—\s*/,'');
-    drawLS(authorStr,tx,y);
+    drawLS(authorStr,ax,authorBaseline,authorLS);
     // export — try Web Share (lets iOS/Android "Save to Photos / 儲存影像"); fallback to download
     const btn=document.getElementById('downloadBtn');const orig=btn.textContent;
     const fname='金句_'+Date.now()+'.png';
