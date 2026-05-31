@@ -72,7 +72,11 @@
   }
   #board{width:100%;height:100%;position:relative;overflow:hidden;display:block}
   #bgWrap{position:absolute;inset:0;filter:brightness(var(--bright,1));}
-  #bgImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  #bgImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+    transform-origin:center center;transform:translate(var(--imgX,0%),var(--imgY,0%)) scale(var(--imgZoom,1));}
+  #board.photomode{cursor:grab}
+  #board.photomode.grabbing{cursor:grabbing}
+  #board.photomode .content{pointer-events:none}
   .overlay{position:absolute;inset:0;opacity:var(--ovOpacity,1);background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.45) 55%,rgba(0,0,0,.85) 100%)}
   .grain{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;pointer-events:none;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
@@ -227,6 +231,16 @@
         <span id="fileLabelText">點此上傳圖片（建議正方形）</span>
       </label>
       <input type="file" id="bgUpload" accept="image/*">
+      <div id="photoCtrls" style="display:none">
+        <div class="hint-text" style="margin-top:10px">🖐 點下方按鈕切到「移動照片」，即可在預覽圖上拖曳照片、調整位置；也可拉縮放滑桿。</div>
+        <div class="align-grp" id="dragModeGrp" style="margin-top:6px">
+          <button class="btn active" data-mode="text">✎ 移動文字</button>
+          <button class="btn" data-mode="photo">📷 移動照片</button>
+        </div>
+        <label>照片縮放 <span id="zoomVal">100</span>%</label>
+        <input type="range" id="zoom" min="100" max="300" value="100">
+        <button class="btn" id="resetPhoto" style="margin-top:8px;width:100%">↺ 重置照片位置</button>
+      </div>
       <label>純色 / 漸層底色</label>
       <div class="row">
         <button class="btn" data-grad="dark">深色</button>
@@ -434,7 +448,21 @@ const bgWrap=document.getElementById('bgWrap');
 let state={dark:55,accent:'#d4a857',align:'left',font:"'Noto Serif TC',serif",fontSize:34,
   authorSize:18,lineH:1.5,cw:82,cx:9,cy:55,ovOpacity:1,bright:1,
   gradKey:'plum',hasImg:false,
+  imgX:0,imgY:0,imgZoom:1,dragMode:'text',
+  imgX:0,imgY:0,imgZoom:1,dragMode:'text',
   ovDir:'bottom',ovPos:55,ovColor:'0,0,0'};
+
+// ===== photo (background image) transform + drag mode =====
+function applyImgTransform(){
+  bgImg.style.setProperty('--imgX',state.imgX+'%');
+  bgImg.style.setProperty('--imgY',state.imgY+'%');
+  bgImg.style.setProperty('--imgZoom',state.imgZoom);
+}
+function setDragMode(mode){
+  state.dragMode=mode;
+  document.querySelectorAll('#dragModeGrp .btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  board.classList.toggle('photomode',mode==='photo');
+}
 
 // ===== overlay gradient builder (shared by preview + export) =====
 const DIR_ANGLE={top:'0deg',bottom:'180deg',left:'270deg',right:'90deg',
@@ -476,6 +504,9 @@ function setGradient(key){
   const fl=document.getElementById('fileLabel');fl.classList.remove('loaded');
   document.getElementById('fileLabelText').textContent='點此上傳圖片（建議正方形）';
   document.querySelectorAll('[data-grad]').forEach(b=>b.classList.toggle('active',b.dataset.grad===key));
+  // hide photo controls + exit photo mode
+  document.getElementById('photoCtrls').style.display='none';
+  setDragMode('text');
 }
 setGradient('plum');
 
@@ -492,6 +523,11 @@ document.getElementById('bgUpload').addEventListener('change',e=>{
     const fl=document.getElementById('fileLabel');fl.classList.add('loaded');
     document.getElementById('fileLabelText').textContent='✓ 已載入圖片，點此可更換';
     document.querySelectorAll('[data-grad]').forEach(b=>b.classList.remove('active'));
+    // reveal photo position controls + reset transform
+    document.getElementById('photoCtrls').style.display='block';
+    state.imgX=0;state.imgY=0;state.imgZoom=1;
+    document.getElementById('zoom').value=100;document.getElementById('zoomVal').textContent='100';
+    applyImgTransform();
   };
   r.readAsDataURL(f);
 });
@@ -683,6 +719,48 @@ content.addEventListener('touchstart',pointerDown,{passive:false});
 window.addEventListener('touchmove',pointerMove,{passive:false});
 window.addEventListener('touchend',pointerUp);
 
+// ===== PHOTO drag + zoom controls =====
+document.querySelectorAll('#dragModeGrp .btn').forEach(b=>b.addEventListener('click',()=>setDragMode(b.dataset.mode)));
+document.getElementById('zoom').addEventListener('input',e=>{
+  state.imgZoom=+e.target.value/100;document.getElementById('zoomVal').textContent=e.target.value;
+  clampImg();applyImgTransform();
+});
+document.getElementById('resetPhoto').addEventListener('click',()=>{
+  state.imgX=0;state.imgY=0;state.imgZoom=1;
+  document.getElementById('zoom').value=100;document.getElementById('zoomVal').textContent='100';
+  applyImgTransform();
+});
+// keep pan within bounds so no empty edge shows (max offset depends on zoom)
+function clampImg(){
+  const lim=Math.max(0,(state.imgZoom-1)/2*100); // % translate limit
+  state.imgX=Math.max(-lim,Math.min(lim,state.imgX));
+  state.imgY=Math.max(-lim,Math.min(lim,state.imgY));
+}
+let pDrag=false,pStartX,pStartY,pImgX,pImgY;
+function photoDown(e){
+  if(state.dragMode!=='photo'||!state.hasImg)return;
+  pDrag=true;board.classList.add('grabbing');
+  const pt=e.touches?e.touches[0]:e;
+  pStartX=pt.clientX;pStartY=pt.clientY;pImgX=state.imgX;pImgY=state.imgY;
+  e.preventDefault();
+}
+function photoMove(e){
+  if(!pDrag)return;
+  const pt=e.touches?e.touches[0]:e;
+  const rect=board.getBoundingClientRect();
+  const dx=(pt.clientX-pStartX)/rect.width*100;
+  const dy=(pt.clientY-pStartY)/rect.height*100;
+  state.imgX=pImgX+dx;state.imgY=pImgY+dy;
+  clampImg();applyImgTransform();e.preventDefault();
+}
+function photoUp(){if(!pDrag)return;pDrag=false;board.classList.remove('grabbing');}
+board.addEventListener('mousedown',photoDown);
+window.addEventListener('mousemove',photoMove);
+window.addEventListener('mouseup',photoUp);
+board.addEventListener('touchstart',photoDown,{passive:false});
+window.addEventListener('touchmove',photoMove,{passive:false});
+window.addEventListener('touchend',photoUp);
+
 // ===== RESIZE via corner handle (mouse/touch drag) =====
 const resizeHandle=document.getElementById('resizeHandle');
 let resizing=false,rStartY,rStartFs;
@@ -788,8 +866,17 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     ctx.save();
     ctx.filter=`brightness(${state.bright})`;
     if(state.hasImg && bgImg.src){
-      const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight,r=Math.max(S/iw,S/ih);
-      const w=iw*r,h=ih*r;ctx.drawImage(bgImg,(S-w)/2,(S-h)/2,w,h);
+      const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight;
+      // base cover fit into S×S
+      const r=Math.max(S/iw,S/ih);
+      const w0=iw*r,h0=ih*r;
+      // apply zoom about center + translate (imgX/imgY are % of element size = S)
+      const z=state.imgZoom;
+      const w=w0*z,h=h0*z;
+      const tx=state.imgX/100*S, ty=state.imgY/100*S;
+      const dx=(S-w)/2 + tx;
+      const dy=(S-h)/2 + ty;
+      ctx.drawImage(bgImg,dx,dy,w,h);
     }else{
       const cols=GRADS[state.gradKey]||GRADS.dark;
       const g=ctx.createLinearGradient(0,0,S,S);g.addColorStop(0,cols[0]);g.addColorStop(1,cols[1]);
