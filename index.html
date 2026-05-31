@@ -72,7 +72,7 @@
   }
   #board{width:100%;height:100%;position:relative;overflow:hidden;display:block}
   #bgWrap{position:absolute;inset:0;filter:brightness(var(--bright,1));}
-  #bgImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  #bgImg{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;
     transform-origin:center center;transform:translate(var(--imgX,0%),var(--imgY,0%)) scale(var(--imgZoom,1));}
   #board.photomode{cursor:grab}
   #board.photomode.grabbing{cursor:grabbing}
@@ -233,7 +233,7 @@
       </label>
       <input type="file" id="bgUpload" accept="image/*">
       <div id="photoCtrls" style="display:none">
-        <div class="hint-text" style="margin-top:10px">🖐 點下方按鈕切到「移動照片」，即可在預覽圖上拖曳照片、調整位置；也可拉縮放滑桿。</div>
+        <div class="hint-text" style="margin-top:10px">🖐 100% 會顯示完整照片（不裁切）。切到「移動照片」即可在預覽圖上拖曳；放大縮放滑桿可填滿或裁切局部。</div>
         <div class="align-grp" id="dragModeGrp" style="margin-top:6px">
           <button class="btn active" data-mode="text">✎ 移動文字</button>
           <button class="btn" data-mode="photo">📷 移動照片</button>
@@ -449,7 +449,6 @@ const bgWrap=document.getElementById('bgWrap');
 let state={dark:55,accent:'#d4a857',align:'left',font:"'Noto Serif TC',serif",fontSize:34,
   authorSize:18,lineH:1.5,cw:82,cx:9,cy:55,ovOpacity:1,bright:1,
   gradKey:'plum',hasImg:false,
-  imgX:0,imgY:0,imgZoom:1,dragMode:'text',
   imgX:0,imgY:0,imgZoom:1,dragMode:'text',
   ovDir:'bottom',ovPos:55,ovColor:'0,0,0'};
 
@@ -735,11 +734,28 @@ document.getElementById('resetPhoto').addEventListener('click',()=>{
   document.getElementById('zoom').value=100;document.getElementById('zoomVal').textContent='100';
   applyImgTransform();
 });
-// keep pan within bounds so no empty edge shows (max offset depends on zoom)
+// keep pan within sensible bounds based on the rendered (contain) image size & zoom
+function imgRenderInfo(){
+  // size of the image as rendered by object-fit:contain inside the SxS box, before scale()
+  const iw=bgImg.naturalWidth||1, ih=bgImg.naturalHeight||1;
+  const boxAR=1; // square board
+  const imgAR=iw/ih;
+  // fraction of box filled on each axis at zoom 1 (contain)
+  let fw,fh;
+  if(imgAR>=boxAR){fw=1;fh=boxAR/imgAR;} else {fh=1;fw=imgAR/boxAR;}
+  return {fw,fh};
+}
 function clampImg(){
-  const lim=Math.max(0,(state.imgZoom-1)/2*100); // % translate limit
-  state.imgX=Math.max(-lim,Math.min(lim,state.imgX));
-  state.imgY=Math.max(-lim,Math.min(lim,state.imgY));
+  const {fw,fh}=imgRenderInfo();
+  const z=state.imgZoom;
+  // rendered size as fraction of box after zoom
+  const rw=fw*z, rh=fh*z;
+  // translate is % of element box (=100). allow moving until an edge reaches the box edge.
+  // max offset so the smaller side can still be panned fully; if image smaller than box, allow centering range too
+  const limX=Math.max(0,(rw-1)/2*100) + (rw<1?(1-rw)/2*100:0);
+  const limY=Math.max(0,(rh-1)/2*100) + (rh<1?(1-rh)/2*100:0);
+  state.imgX=Math.max(-limX,Math.min(limX,state.imgX));
+  state.imgY=Math.max(-limY,Math.min(limY,state.imgY));
 }
 let pDrag=false,pStartX,pStartY,pImgX,pImgY;
 function photoDown(e){
@@ -871,11 +887,13 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     ctx.save();
     ctx.filter=`brightness(${state.bright})`;
     if(state.hasImg && bgImg.src){
+      // fill behind first so any contain letterbox area shows the chosen base colour (matches #bgWrap #000)
+      ctx.save();ctx.filter='none';ctx.fillStyle='#000';ctx.fillRect(0,0,S,S);ctx.restore();
       const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight;
-      // base cover fit into S×S
-      const r=Math.max(S/iw,S/ih);
+      // base CONTAIN fit into S×S (whole photo visible at zoom 1) — matches object-fit:contain
+      const r=Math.min(S/iw,S/ih);
       const w0=iw*r,h0=ih*r;
-      // apply zoom about center + translate (imgX/imgY are % of element size = S)
+      // apply zoom about center + translate (imgX/imgY are % of element box = S)
       const z=state.imgZoom;
       const w=w0*z,h=h0*z;
       const tx=state.imgX/100*S, ty=state.imgY/100*S;
