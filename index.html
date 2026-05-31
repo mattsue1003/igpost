@@ -9,48 +9,66 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#0a0a0c;
+    --bg:#08080a;
     --panel:#141417;
     --panel-2:#1c1c21;
-    --line:#2a2a31;
-    --txt:#ECECEC;
+    --panel-3:#232329;
+    --line:#2c2c34;
+    --line-2:#3a3a44;
+    --txt:#F0F0F0;
     --muted:#8a8a93;
     --accent:#d4a857;
     --accent-2:#e8c987;
     --radius:14px;
+    --radius-sm:10px;
   }
   *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
   body{
     font-family:'Noto Sans TC',sans-serif;
     background:var(--bg);
     color:var(--txt);
     min-height:100vh;
-    background-image:radial-gradient(circle at 20% 10%, #1a1a22 0%, transparent 45%),radial-gradient(circle at 85% 90%, #15151c 0%, transparent 40%);
+    -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 18% 8%, #1c1c26 0%, transparent 42%),radial-gradient(circle at 88% 92%, #16161e 0%, transparent 40%);
+    background-attachment:fixed;
   }
   header{
-    text-align:center;padding:34px 16px 14px;
+    text-align:center;padding:30px 16px 10px;
   }
   header h1{
-    font-family:'Noto Serif TC',serif;font-weight:900;font-size:26px;letter-spacing:2px;
+    font-family:'Noto Serif TC',serif;font-weight:900;font-size:25px;letter-spacing:2px;
     background:linear-gradient(90deg,var(--accent),var(--accent-2));
     -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
   }
-  header p{color:var(--muted);font-size:13px;margin-top:6px;letter-spacing:1px}
+  header p{color:var(--muted);font-size:12.5px;margin-top:6px;letter-spacing:1px}
   .wrap{
-    max-width:1180px;margin:0 auto;padding:8px 18px 60px;
+    max-width:1180px;margin:0 auto;padding:8px 18px 80px;
     display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:26px;align-items:start;
   }
   /* preview */
   .stage{position:sticky;top:18px}
   @media(max-width:880px){
-    .wrap{grid-template-columns:1fr}
+    .wrap{grid-template-columns:1fr;gap:18px}
     .stage{position:static;top:auto}
-    .canvas-shell{max-width:360px;margin:0 auto}
-    .stage .row{max-width:360px;margin-left:auto;margin-right:auto}
+    .canvas-shell{max-width:340px;margin:0 auto}
+    .stage .toolbar{max-width:340px;margin-left:auto;margin-right:auto}
+    header{padding:22px 16px 6px}
+  }
+  .canvas-frame{
+    padding:10px;border-radius:calc(var(--radius) + 6px);
+    background:linear-gradient(160deg,#202028,#141418);
+    border:1px solid var(--line-2);
+    box-shadow:0 24px 60px -22px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.04);
   }
   .canvas-shell{
     width:100%;aspect-ratio:1/1;border-radius:var(--radius);overflow:hidden;
-    box-shadow:0 30px 70px -20px rgba(0,0,0,.8);background:#000;position:relative;
+    background:
+      linear-gradient(45deg,#202026 25%,transparent 25%,transparent 75%,#202026 75%),
+      linear-gradient(45deg,#202026 25%,#191920 25%,#191920 75%,#202026 75%);
+    background-size:24px 24px;background-position:0 0,12px 12px;
+    position:relative;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
   }
   #board{width:100%;height:100%;position:relative;overflow:hidden;display:block}
   #bgWrap{position:absolute;inset:0;filter:brightness(var(--bright,1));}
@@ -60,13 +78,29 @@
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
   .content{position:absolute;left:var(--cx,9%);top:var(--cy,55%);width:var(--cw,82%);
     display:flex;flex-direction:column;cursor:grab;touch-action:none;
-    transition:box-shadow .15s;border-radius:8px;padding:6px;}
+    transition:box-shadow .15s, outline-color .15s;border-radius:8px;padding:6px;
+    outline:1.5px dashed transparent;outline-offset:2px;}
+  .content:hover{outline-color:rgba(255,255,255,.25)}
   .content.dragging{cursor:grabbing}
-  .content.editing{box-shadow:0 0 0 1.5px var(--accent),0 0 0 5px rgba(212,168,87,.18)}
-  .drag-hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);
-    background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:5px 12px;border-radius:20px;
-    letter-spacing:1px;pointer-events:none;opacity:0;transition:.3s;backdrop-filter:blur(4px);z-index:5}
-  .canvas-shell:hover .drag-hint{opacity:1}
+  .content.editing{outline:none;box-shadow:0 0 0 1.5px var(--accent),0 0 0 5px rgba(212,168,87,.18)}
+  /* resize handle */
+  .resize-handle{
+    position:absolute;right:-9px;bottom:-9px;width:22px;height:22px;border-radius:50%;
+    background:var(--accent);border:2px solid #1a1308;cursor:nwse-resize;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 8px rgba(0,0,0,.5);touch-action:none;z-index:6;
+    opacity:0;transition:opacity .18s;
+  }
+  .resize-handle::before{content:"⤡";font-size:12px;color:#1a1308;font-weight:700;line-height:1}
+  .content:hover .resize-handle,.content.editing .resize-handle{opacity:1}
+  .hint-bar{
+    position:absolute;bottom:10px;left:50%;transform:translateX(-50%);
+    background:rgba(10,10,12,.72);color:#fff;font-size:11px;padding:6px 14px;border-radius:20px;
+    letter-spacing:.5px;pointer-events:none;opacity:0;transition:.3s;backdrop-filter:blur(6px);z-index:7;
+    white-space:nowrap;border:1px solid rgba(255,255,255,.1);
+  }
+  .canvas-shell:hover .hint-bar{opacity:1}
+  @media(max-width:880px){.resize-handle{opacity:1;width:26px;height:26px}.hint-bar{opacity:1}}
   .mark{font-family:'Playfair Display',serif;font-size:64px;line-height:.6;color:var(--accent);opacity:.85;margin-bottom:6px}
   #quoteText{
     font-family:'Noto Serif TC',serif;font-weight:700;color:#fff;
@@ -76,45 +110,61 @@
   .divider{width:46px;height:3px;background:var(--accent);margin:18px 0 12px;border-radius:2px}
   #authorText{font-family:'Noto Sans TC',sans-serif;font-weight:500;color:var(--accent-2);font-size:18px;letter-spacing:2px}
   /* controls */
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:18px}
-  .panel h2{font-family:'Noto Serif TC',serif;font-size:15px;letter-spacing:1px;margin-bottom:14px;color:var(--accent-2);font-weight:600}
-  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px;letter-spacing:1px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin-bottom:16px;
+    box-shadow:0 2px 12px -6px rgba(0,0,0,.5)}
+  .panel h2{font-family:'Noto Serif TC',serif;font-size:15px;letter-spacing:1px;margin-bottom:14px;color:var(--accent-2);font-weight:600;
+    display:flex;align-items:center;gap:8px}
+  .panel h2::before{content:"";width:4px;height:15px;background:linear-gradient(var(--accent),var(--accent-2));border-radius:2px;display:inline-block}
+  label{display:block;font-size:12px;color:var(--muted);margin:13px 0 6px;letter-spacing:.5px}
+  label:first-of-type{margin-top:0}
   textarea,input[type=text]{
     width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
-    border-radius:10px;padding:11px 12px;font-family:'Noto Sans TC',sans-serif;font-size:14px;resize:vertical;
+    border-radius:var(--radius-sm);padding:11px 12px;font-family:'Noto Sans TC',sans-serif;font-size:14px;resize:vertical;
+    transition:border-color .15s;
   }
-  textarea:focus,input:focus{outline:none;border-color:var(--accent)}
-  textarea{min-height:78px}
-  .row{display:flex;gap:10px;flex-wrap:wrap}
+  textarea:focus,input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,168,87,.12)}
+  textarea{min-height:74px;line-height:1.6}
+  .row{display:flex;gap:9px;flex-wrap:wrap}
   .btn{
-    flex:1;min-width:120px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
-    padding:11px 14px;border-radius:10px;font-family:'Noto Sans TC',sans-serif;font-size:14px;cursor:pointer;
-    transition:.18s;letter-spacing:1px;
+    flex:1;min-width:72px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    padding:10px 12px;border-radius:var(--radius-sm);font-family:'Noto Sans TC',sans-serif;font-size:13.5px;cursor:pointer;
+    transition:.15s;letter-spacing:.5px;white-space:nowrap;
   }
-  .btn:hover{border-color:var(--accent);color:var(--accent-2)}
-  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#1a1308;border:none;font-weight:700}
+  .btn:hover{border-color:var(--accent);color:var(--accent-2);background:var(--panel-3)}
+  .btn:active{transform:scale(.97)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#1a1308;border:none;font-weight:700;font-size:14.5px}
   .btn.primary:hover{filter:brightness(1.08)}
-  .file-label{display:block;border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:.18s}
-  .file-label:hover{border-color:var(--accent);color:var(--accent-2)}
+  .toolbar{display:flex;gap:10px;margin-top:14px}
+  .toolbar .btn.primary{flex:2}
+  .file-label{display:flex;flex-direction:column;align-items:center;gap:4px;border:1.5px dashed var(--line-2);border-radius:var(--radius-sm);padding:20px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:.18s}
+  .file-label:hover{border-color:var(--accent);color:var(--accent-2);background:rgba(212,168,87,.04)}
+  .file-label .big{font-size:22px}
+  .file-label.loaded{border-color:var(--accent);border-style:solid;color:var(--accent-2)}
   input[type=file]{display:none}
-  .sliders label{display:flex;justify-content:space-between}
-  input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
-  .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-  .sw{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent}
-  .sw.active{border-color:#fff}
+  .sliders label{display:flex;justify-content:space-between;align-items:baseline}
+  .sliders label span{color:var(--accent-2);font-variant-numeric:tabular-nums;font-weight:500}
+  input[type=range]{width:100%;accent-color:var(--accent);margin-top:2px;height:22px;cursor:pointer}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .sw{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:transform .12s;position:relative}
+  .sw:hover{transform:scale(1.12)}
+  .sw.active{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.2)}
   .align-grp{display:flex;gap:8px}
-  .align-grp .btn{flex:1}
-  .align-grp .btn.active{border-color:var(--accent);color:var(--accent)}
+  .align-grp .btn{flex:1;min-width:0}
+  .align-grp .btn.active{border-color:var(--accent);color:var(--accent);background:rgba(212,168,87,.08)}
+  .hint-text{font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:8px;
+    background:var(--panel-2);border-radius:8px;padding:9px 11px;border-left:2px solid var(--accent)}
   /* quote bank */
   .bank-head{display:flex;gap:8px;align-items:center;margin-bottom:12px}
   #search{flex:1}
-  .bank{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
-  .bank::-webkit-scrollbar{width:7px}.bank::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
-  .q-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:pointer;transition:.15s}
-  .q-item:hover{border-color:var(--accent);transform:translateX(2px)}
+  .bank{max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;margin-top:12px}
+  .bank::-webkit-scrollbar{width:7px}.bank::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:4px}
+  .bank::-webkit-scrollbar-track{background:transparent}
+  .q-item{background:var(--panel-2);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 13px;cursor:pointer;transition:.15s}
+  .q-item:hover{border-color:var(--accent);transform:translateX(3px);background:var(--panel-3)}
   .q-item .qt{font-family:'Noto Serif TC',serif;font-size:14px;line-height:1.5}
   .q-item .qa{font-size:12px;color:var(--accent-2);margin-top:5px;letter-spacing:1px}
-  .count{font-size:11px;color:var(--muted)}
+  .count{font-size:11px;color:var(--muted);font-weight:400}
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:24px 0}
 </style>
 </head>
 <body>
@@ -126,25 +176,29 @@
 <div class="wrap">
   <!-- PREVIEW -->
   <div class="stage">
-    <div class="canvas-shell">
-      <div id="board">
-        <div id="bgWrap">
-          <img id="bgImg" alt="">
-        </div>
-        <div class="overlay" id="overlay"></div>
-        <div class="grain"></div>
-        <div class="drag-hint">✋ 拖曳文字可移動位置</div>
-        <div class="content" id="content">
-          <div class="mark">"</div>
-          <div id="quoteText">點選右側金句，或輸入你的文字</div>
-          <div class="divider"></div>
-          <div id="authorText">— 佚名</div>
+    <div class="canvas-frame">
+      <div class="canvas-shell">
+        <div id="board">
+          <div id="bgWrap">
+            <img id="bgImg" alt="">
+          </div>
+          <div class="overlay" id="overlay"></div>
+          <div class="grain"></div>
+          <div class="hint-bar">✋ 拖曳文字移動 · 拖右下角圓點縮放（手機可雙指縮放）</div>
+          <div class="content" id="content">
+            <div class="mark">"</div>
+            <div id="quoteText">點選下方金句，或自行輸入文字</div>
+            <div class="divider"></div>
+            <div id="authorText">— 佚名</div>
+            <div class="resize-handle" id="resizeHandle"></div>
+          </div>
         </div>
       </div>
     </div>
-    <div class="row" style="margin-top:14px">
-      <button class="btn primary" id="downloadBtn">⬇ 下載圖片 (1080×1080)</button>
-      <button class="btn" id="randomBtn">🎲 隨機金句</button>
+    <div class="toolbar">
+      <button class="btn primary" id="downloadBtn">⬇ 下載 1080×1080</button>
+      <button class="btn" id="randomBtn">🎲 隨機</button>
+      <button class="btn" id="fitBtn">↻ 自動排版</button>
     </div>
   </div>
 
@@ -153,22 +207,19 @@
     <div class="panel">
       <h2>文字內容</h2>
       <label>金句</label>
-      <textarea id="inQuote">點選右側金句，或輸入你的文字</textarea>
+      <textarea id="inQuote">點選下方金句，或自行輸入文字</textarea>
       <label>署名</label>
       <input type="text" id="inAuthor" value="佚名">
     </div>
 
     <div class="panel">
-      <h2>背景圖片</h2>
-      <label class="file-label" for="bgUpload">📷 點此上傳圖片（建議正方形）</label>
+      <h2>背景</h2>
+      <label class="file-label" for="bgUpload" id="fileLabel">
+        <span class="big">📷</span>
+        <span id="fileLabelText">點此上傳圖片（建議正方形）</span>
+      </label>
       <input type="file" id="bgUpload" accept="image/*">
-      <label>暗化程度（漸層遮罩，讓文字更清楚） <span id="darkVal">55</span></label>
-      <input type="range" id="dark" min="0" max="100" value="55">
-      <label>遮罩透明度 <span id="ovVal">100</span>%</label>
-      <input type="range" id="ovOpacity" min="0" max="100" value="100">
-      <label>背景亮度 <span id="brightVal">100</span>%</label>
-      <input type="range" id="bright" min="20" max="150" value="100">
-      <label>純色背景</label>
+      <label>純色 / 漸層底色</label>
       <div class="row">
         <button class="btn" data-grad="dark">深色</button>
         <button class="btn" data-grad="green">墨綠</button>
@@ -181,12 +232,40 @@
         <button class="btn" data-grad="plum">紫醬</button>
         <button class="btn" data-grad="bronze">古銅</button>
       </div>
+      <label>背景亮度 <span id="brightVal">100</span>%</label>
+      <input type="range" id="bright" min="20" max="150" value="100">
     </div>
 
     <div class="panel sliders">
-      <h2>樣式調整</h2>
+      <h2>遮罩（讓文字更清楚）</h2>
+      <label>暗化程度 <span id="darkVal">55</span></label>
+      <input type="range" id="dark" min="0" max="100" value="55">
+      <label>遮罩透明度 <span id="ovVal">100</span>%</label>
+      <input type="range" id="ovOpacity" min="0" max="100" value="100">
+      <label>漸層位置（深色集中處） <span id="ovPosVal">55</span>%</label>
+      <input type="range" id="ovPos" min="0" max="100" value="55">
+      <label>漸層方向</label>
+      <div class="align-grp" id="ovDir" style="flex-wrap:wrap">
+        <button class="btn" data-dir="top">↑ 上</button>
+        <button class="btn active" data-dir="bottom">↓ 下</button>
+        <button class="btn" data-dir="left">← 左</button>
+        <button class="btn" data-dir="right">→ 右</button>
+      </div>
+      <div class="align-grp" id="ovDir2" style="flex-wrap:wrap;margin-top:8px">
+        <button class="btn" data-dir="tl">↖</button>
+        <button class="btn" data-dir="tr">↗</button>
+        <button class="btn" data-dir="bl">↙</button>
+        <button class="btn" data-dir="br">↘</button>
+        <button class="btn" data-dir="radial">◉ 暈影</button>
+      </div>
+      <label>遮罩顏色</label>
+      <div class="swatches" id="ovColors"></div>
+    </div>
+
+    <div class="panel sliders">
+      <h2>文字樣式</h2>
       <label>金句字級 <span id="fsVal">34</span>px</label>
-      <input type="range" id="fontSize" min="18" max="68" value="34">
+      <input type="range" id="fontSize" min="18" max="72" value="34">
       <label>署名字級 <span id="afsVal">18</span>px</label>
       <input type="range" id="authorSize" min="12" max="34" value="18">
       <label>行距 <span id="lhVal">1.5</span></label>
@@ -206,23 +285,21 @@
     </div>
 
     <div class="panel sliders">
-      <h2>文字區塊位置</h2>
-      <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:6px">
-        💡 直接在預覽圖上用手指或滑鼠<strong style="color:var(--accent-2)">拖曳文字</strong>，即可自由擺放。</p>
+      <h2>文字位置</h2>
+      <div class="hint-text">💡 直接在預覽圖上<strong style="color:var(--accent-2)">拖曳文字</strong>移動位置，拖<strong style="color:var(--accent-2)">右下圓點</strong>縮放大小（手機可雙指縮放）。文字會自動限制在畫面內。</div>
       <label>文字區塊寬度 <span id="cwVal">82</span>%</label>
       <input type="range" id="cw" min="40" max="94" value="82">
       <div class="row" style="margin-top:14px">
-        <button class="btn" id="resetPos">↺ 重置位置（左下）</button>
+        <button class="btn" id="resetPos">↙ 靠左下</button>
         <button class="btn" id="centerPos">⊕ 置中</button>
+        <button class="btn" id="topPos">↖ 靠左上</button>
       </div>
     </div>
 
     <div class="panel">
-      <div class="bank-head">
-        <h2 style="margin:0">內建金句庫 <span class="count" id="count"></span></h2>
-      </div>
-      <input type="text" id="search" placeholder="🔍 搜尋金句或人名…">
-      <div class="bank" id="bank" style="margin-top:12px"></div>
+      <h2 style="margin-bottom:0">內建金句庫 <span class="count" id="count"></span></h2>
+      <input type="text" id="search" placeholder="🔍 搜尋金句或人名…" style="margin-top:14px">
+      <div class="bank" id="bank"></div>
     </div>
   </div>
 </div>
@@ -348,7 +425,29 @@ const bgWrap=document.getElementById('bgWrap');
 
 let state={dark:55,accent:'#d4a857',align:'left',font:"'Noto Serif TC',serif",fontSize:34,
   authorSize:18,lineH:1.5,cw:82,cx:9,cy:55,ovOpacity:1,bright:1,
-  gradKey:'dark',hasImg:false};
+  gradKey:'dark',hasImg:false,
+  ovDir:'bottom',ovPos:55,ovColor:'0,0,0'};
+
+// ===== overlay gradient builder (shared by preview + export) =====
+const DIR_ANGLE={top:'0deg',bottom:'180deg',left:'270deg',right:'90deg',
+  tl:'315deg',tr:'45deg',bl:'225deg',br:'135deg'};
+function overlayStops(){
+  const d=state.dark/100,c=state.ovColor,p=state.ovPos;
+  // three stops: light → mid → dark, with mid anchored at ovPos
+  const mid=Math.max(5,Math.min(95,p));
+  return [
+    {col:`rgba(${c},${(d*.15).toFixed(3)})`,at:0},
+    {col:`rgba(${c},${(d*.7).toFixed(3)})`,at:mid},
+    {col:`rgba(${c},${Math.min(d*1.4,1).toFixed(3)})`,at:100}
+  ];
+}
+function buildOverlayCSS(){
+  const stops=overlayStops().map(s=>`${s.col} ${s.at}%`).join(',');
+  if(state.ovDir==='radial')
+    return `radial-gradient(circle at ${state.ovPos}% ${state.ovPos}%, ${stops})`;
+  return `linear-gradient(${DIR_ANGLE[state.ovDir]||'180deg'}, ${stops})`;
+}
+function applyOverlay(){overlay.style.background=buildOverlayCSS();}
 
 const GRADS={
   dark:['#1a1a1f','#000'],
@@ -365,18 +464,27 @@ function setGradient(key){
   state.gradKey=key;state.hasImg=false;
   bgImg.style.display='none';bgImg.removeAttribute('src');
   bgWrap.style.background=gradCss(key);
+  // reset file label
+  const fl=document.getElementById('fileLabel');fl.classList.remove('loaded');
+  document.getElementById('fileLabelText').textContent='點此上傳圖片（建議正方形）';
+  document.querySelectorAll('[data-grad]').forEach(b=>b.classList.toggle('active',b.dataset.grad===key));
 }
 setGradient('dark');
 
-// text bindings
-inQuote.addEventListener('input',()=>quoteText.textContent=inQuote.value);
-inAuthor.addEventListener('input',()=>authorText.textContent='— '+inAuthor.value);
+// text bindings (clamp because height may change)
+inQuote.addEventListener('input',()=>{quoteText.textContent=inQuote.value;clampPos();});
+inAuthor.addEventListener('input',()=>{authorText.textContent='— '+inAuthor.value;clampPos();});
 
 // upload
 document.getElementById('bgUpload').addEventListener('change',e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=ev=>{bgWrap.style.background='#000';bgImg.style.display='block';bgImg.src=ev.target.result;state.hasImg=true;};
+  r.onload=ev=>{
+    bgWrap.style.background='#000';bgImg.style.display='block';bgImg.src=ev.target.result;state.hasImg=true;
+    const fl=document.getElementById('fileLabel');fl.classList.add('loaded');
+    document.getElementById('fileLabelText').textContent='✓ 已載入圖片，點此可更換';
+    document.querySelectorAll('[data-grad]').forEach(b=>b.classList.remove('active'));
+  };
   r.readAsDataURL(f);
 });
 
@@ -385,8 +493,20 @@ document.querySelectorAll('[data-grad]').forEach(b=>b.addEventListener('click',(
 
 // dark slider
 document.getElementById('dark').addEventListener('input',e=>{
-  state.dark=+e.target.value;document.getElementById('darkVal').textContent=e.target.value;const d=state.dark/100;
-  overlay.style.background=`linear-gradient(180deg,rgba(0,0,0,${d*.3}) 0%,rgba(0,0,0,${d*.8}) 55%,rgba(0,0,0,${Math.min(d*1.4,1)}) 100%)`;
+  state.dark=+e.target.value;document.getElementById('darkVal').textContent=e.target.value;
+  applyOverlay();
+});
+
+// overlay direction
+document.querySelectorAll('#ovDir .btn, #ovDir2 .btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#ovDir .btn, #ovDir2 .btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');state.ovDir=b.dataset.dir;applyOverlay();
+}));
+
+// overlay gradient position
+document.getElementById('ovPos').addEventListener('input',e=>{
+  state.ovPos=+e.target.value;document.getElementById('ovPosVal').textContent=e.target.value;
+  applyOverlay();
 });
 
 // overlay opacity
@@ -401,44 +521,103 @@ document.getElementById('bright').addEventListener('input',e=>{
   bgWrap.style.setProperty('--bright',state.bright);
 });
 
-// font size
-document.getElementById('fontSize').addEventListener('input',e=>{
-  state.fontSize=+e.target.value;document.getElementById('fsVal').textContent=e.target.value;
-  quoteText.style.fontSize=state.fontSize+'px';
-  mark.style.fontSize=(state.fontSize*2.2)+'px';
+// overlay color swatches
+const OV_COLORS=[
+  {name:'黑',rgb:'0,0,0'},{name:'墨綠',rgb:'10,32,24'},{name:'藏青',rgb:'8,20,40'},
+  {name:'酒紅',rgb:'40,12,18'},{name:'紫',rgb:'28,14,40'},{name:'古銅',rgb:'40,28,12'},
+  {name:'暖棕',rgb:'30,20,14'},{name:'冷藍',rgb:'12,24,36'}
+];
+const ovColorWrap=document.getElementById('ovColors');
+OV_COLORS.forEach((c,i)=>{
+  const s=document.createElement('div');s.className='sw'+(i===0?' active':'');
+  s.style.background=`rgb(${c.rgb})`;s.title=c.name;
+  s.addEventListener('click',()=>{
+    ovColorWrap.querySelectorAll('.sw').forEach(x=>x.classList.remove('active'));s.classList.add('active');
+    state.ovColor=c.rgb;applyOverlay();
+  });
+  ovColorWrap.appendChild(s);
 });
+applyOverlay();
+
+// ===== font size (with helper so resize/pinch can reuse) =====
+const fontSizeSlider=document.getElementById('fontSize');
+function setFontSize(v,fromUser){
+  v=Math.max(+fontSizeSlider.min,Math.min(+fontSizeSlider.max,Math.round(v)));
+  state.fontSize=v;document.getElementById('fsVal').textContent=v;
+  fontSizeSlider.value=v;
+  quoteText.style.fontSize=v+'px';
+  mark.style.fontSize=(v*2.2)+'px';
+  if(fromUser!==false)clampPos();
+}
+fontSizeSlider.addEventListener('input',e=>setFontSize(+e.target.value));
 
 // author size
 document.getElementById('authorSize').addEventListener('input',e=>{
   state.authorSize=+e.target.value;document.getElementById('afsVal').textContent=e.target.value;
-  authorText.style.fontSize=state.authorSize+'px';
+  authorText.style.fontSize=state.authorSize+'px';clampPos();
 });
 
 // line height
 document.getElementById('lineH').addEventListener('input',e=>{
   state.lineH=+e.target.value/100;document.getElementById('lhVal').textContent=state.lineH.toFixed(2);
-  quoteText.style.lineHeight=state.lineH;
+  quoteText.style.lineHeight=state.lineH;clampPos();
 });
 
 // text block width
 document.getElementById('cw').addEventListener('input',e=>{
   state.cw=+e.target.value;document.getElementById('cwVal').textContent=e.target.value;
-  content.style.setProperty('--cw',state.cw+'%');
+  content.style.setProperty('--cw',state.cw+'%');clampPos();
 });
 
-// position helpers
+// ===== position + clamping (keeps text block fully inside the 1:1 canvas) =====
+function blockPct(){ // returns {w,h} of content block as % of board
+  const br=board.getBoundingClientRect();
+  const cr=content.getBoundingClientRect();
+  return {w:cr.width/br.width*100, h:cr.height/br.height*100};
+}
+function clampPos(){
+  // measure after layout settles
+  requestAnimationFrame(()=>{
+    const b=blockPct();
+    const maxX=Math.max(0,100-b.w);
+    const maxY=Math.max(0,100-b.h);
+    state.cx=Math.min(Math.max(0,state.cx),maxX);
+    state.cy=Math.min(Math.max(0,state.cy),maxY);
+    applyPos();
+  });
+}
 function applyPos(){content.style.setProperty('--cx',state.cx+'%');content.style.setProperty('--cy',state.cy+'%');}
-document.getElementById('resetPos').addEventListener('click',()=>{state.cx=9;state.cy=60;applyPos();});
+
+function setAlign(a){
+  state.align=a;
+  content.style.textAlign=a;content.style.alignItems=a==='center'?'center':'flex-start';
+  document.querySelectorAll('#alignGrp .btn').forEach(x=>x.classList.toggle('active',x.dataset.align===a));
+}
+document.getElementById('resetPos').addEventListener('click',()=>{
+  setAlign('left');state.cx=8;
+  requestAnimationFrame(()=>{const b=blockPct();state.cy=100-b.h-6;applyPos();});
+});
+document.getElementById('topPos').addEventListener('click',()=>{
+  setAlign('left');state.cx=8;state.cy=8;applyPos();
+});
 document.getElementById('centerPos').addEventListener('click',()=>{
-  state.cx=(100-state.cw)/2;state.cy=50;state.align='center';
-  content.style.textAlign='center';content.style.alignItems='center';
-  document.querySelectorAll('#alignGrp .btn').forEach(x=>x.classList.toggle('active',x.dataset.align==='center'));
-  applyPos();
+  setAlign('center');
+  requestAnimationFrame(()=>{const b=blockPct();state.cx=(100-b.w)/2;state.cy=(100-b.h)/2;applyPos();});
 });
 
-// ===== DRAG TO MOVE TEXT =====
+// auto-layout: pick a sensible size + bottom-left placement based on text length
+document.getElementById('fitBtn').addEventListener('click',()=>{
+  const len=quoteText.textContent.length;
+  let fs = len<=10?54 : len<=18?44 : len<=30?36 : len<=45?30 : 26;
+  setFontSize(fs,false);
+  setAlign('left');state.cx=8;
+  requestAnimationFrame(()=>{const b=blockPct();state.cy=Math.max(8,100-b.h-7);applyPos();});
+});
+
+// ===== DRAG TO MOVE =====
 let dragging=false,startX,startY,startCx,startCy;
 function pointerDown(e){
+  if(e.target===resizeHandle)return; // handled by resize
   dragging=true;content.classList.add('dragging','editing');
   const pt=e.touches?e.touches[0]:e;
   startX=pt.clientX;startY=pt.clientY;startCx=state.cx;startCy=state.cy;
@@ -448,13 +627,14 @@ function pointerMove(e){
   if(!dragging)return;
   const pt=e.touches?e.touches[0]:e;
   const rect=board.getBoundingClientRect();
+  const b=blockPct();
   const dx=(pt.clientX-startX)/rect.width*100;
   const dy=(pt.clientY-startY)/rect.height*100;
-  state.cx=Math.max(-2,Math.min(98,startCx+dx));
-  state.cy=Math.max(-2,Math.min(98,startCy+dy));
+  state.cx=Math.max(0,Math.min(100-b.w,startCx+dx));
+  state.cy=Math.max(0,Math.min(100-b.h,startCy+dy));
   applyPos();e.preventDefault();
 }
-function pointerUp(){dragging=false;content.classList.remove('dragging');
+function pointerUp(){if(!dragging)return;dragging=false;content.classList.remove('dragging');
   setTimeout(()=>content.classList.remove('editing'),600);}
 content.addEventListener('mousedown',pointerDown);
 window.addEventListener('mousemove',pointerMove);
@@ -462,16 +642,57 @@ window.addEventListener('mouseup',pointerUp);
 content.addEventListener('touchstart',pointerDown,{passive:false});
 window.addEventListener('touchmove',pointerMove,{passive:false});
 window.addEventListener('touchend',pointerUp);
-// init position
-state.cy=60;applyPos();
 
-// swatches
+// ===== RESIZE via corner handle (mouse/touch drag) =====
+const resizeHandle=document.getElementById('resizeHandle');
+let resizing=false,rStartY,rStartFs;
+function resizeDown(e){
+  resizing=true;content.classList.add('editing');
+  const pt=e.touches?e.touches[0]:e;rStartY=pt.clientY;rStartFs=state.fontSize;
+  e.preventDefault();e.stopPropagation();
+}
+function resizeMove(e){
+  if(!resizing)return;
+  const pt=e.touches?e.touches[0]:e;
+  const rect=board.getBoundingClientRect();
+  const dy=(pt.clientY-rStartY)/rect.height; // fraction of board
+  setFontSize(rStartFs + dy*90, false);
+  e.preventDefault();
+}
+function resizeUp(){if(!resizing)return;resizing=false;setTimeout(()=>content.classList.remove('editing'),600);}
+resizeHandle.addEventListener('mousedown',resizeDown);
+window.addEventListener('mousemove',resizeMove);
+window.addEventListener('mouseup',resizeUp);
+resizeHandle.addEventListener('touchstart',resizeDown,{passive:false});
+window.addEventListener('touchmove',resizeMove,{passive:false});
+window.addEventListener('touchend',resizeUp);
+
+// ===== PINCH to resize (two fingers on the text block) =====
+let pinchStartDist=0,pinchStartFs=0;
+function dist(t){const dx=t[0].clientX-t[1].clientX,dy=t[0].clientY-t[1].clientY;return Math.hypot(dx,dy);}
+content.addEventListener('touchstart',e=>{
+  if(e.touches.length===2){dragging=false;pinchStartDist=dist(e.touches);pinchStartFs=state.fontSize;
+    content.classList.add('editing');e.preventDefault();}
+},{passive:false});
+content.addEventListener('touchmove',e=>{
+  if(e.touches.length===2&&pinchStartDist){
+    const ratio=dist(e.touches)/pinchStartDist;
+    setFontSize(pinchStartFs*ratio,false);e.preventDefault();
+  }
+},{passive:false});
+content.addEventListener('touchend',e=>{if(e.touches.length<2){pinchStartDist=0;}});
+
+// init position (bottom-left, clamped)
+setAlign('left');
+requestAnimationFrame(()=>{const b=blockPct();state.cx=8;state.cy=Math.max(8,100-b.h-7);applyPos();});
+
+// swatches (main accent color) — scoped to its own container
 const COLORS=['#d4a857','#e07a5f','#81b29a','#8ecae6','#f2cc8f','#e5e5e5','#c9ada7','#a8dadc'];
 const swWrap=document.getElementById('swatches');
 COLORS.forEach((c,i)=>{
   const s=document.createElement('div');s.className='sw'+(i===0?' active':'');s.style.background=c;
   s.addEventListener('click',()=>{
-    document.querySelectorAll('.sw').forEach(x=>x.classList.remove('active'));s.classList.add('active');
+    swWrap.querySelectorAll('.sw').forEach(x=>x.classList.remove('active'));s.classList.add('active');
     state.accent=c;authorText.style.color=c;divider.style.background=c;mark.style.color=c;
   });
   swWrap.appendChild(s);
@@ -479,16 +700,13 @@ COLORS.forEach((c,i)=>{
 
 // align
 document.querySelectorAll('#alignGrp .btn').forEach(b=>b.addEventListener('click',()=>{
-  document.querySelectorAll('#alignGrp .btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
-  state.align=b.dataset.align;
-  content.style.textAlign=state.align;
-  content.style.alignItems=state.align==='center'?'center':'flex-start';
+  setAlign(b.dataset.align);clampPos();
 }));
 
 // font
 document.querySelectorAll('#fontGrp .btn').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#fontGrp .btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
-  state.font=b.dataset.font;quoteText.style.fontFamily=state.font;
+  state.font=b.dataset.font;quoteText.style.fontFamily=state.font;clampPos();
 }));
 
 // bank
@@ -496,9 +714,12 @@ const bank=document.getElementById('bank');
 function applyQuote(q){
   inQuote.value=q.q;quoteText.textContent=q.q;
   inAuthor.value=q.a;authorText.textContent='— '+q.a;
+  clampPos();
 }
 function renderBank(list){
   bank.innerHTML='';
+  if(!list.length){bank.innerHTML='<div class="empty">找不到符合的金句</div>';
+    document.getElementById('count').textContent='(0)';return;}
   list.forEach(q=>{
     const d=document.createElement('div');d.className='q-item';
     d.innerHTML=`<div class="qt">${q.q}</div><div class="qa">— ${q.a}</div>`;
@@ -535,11 +756,24 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
       ctx.fillStyle=g;ctx.fillRect(0,0,S,S);
     }
     ctx.restore();
-    // overlay (dark gradient) with opacity
+    // overlay gradient (matches preview: direction, position, color, opacity)
     ctx.save();
     ctx.globalAlpha=state.ovOpacity;
-    const d=state.dark/100;const og=ctx.createLinearGradient(0,0,0,S);
-    og.addColorStop(0,`rgba(0,0,0,${d*.3})`);og.addColorStop(.55,`rgba(0,0,0,${d*.8})`);og.addColorStop(1,`rgba(0,0,0,${Math.min(d*1.4,1)})`);
+    const stops=overlayStops();
+    let og;
+    if(state.ovDir==='radial'){
+      const px=S*state.ovPos/100, py=S*state.ovPos/100;
+      const rad=S*1.1;
+      og=ctx.createRadialGradient(px,py,0,px,py,rad);
+    }else{
+      // map direction to start/end points (light → dark)
+      const pts={
+        top:[0,S,0,0], bottom:[0,0,0,S], left:[S,0,0,0], right:[0,0,S,0],
+        tl:[S,S,0,0], tr:[0,S,S,0], bl:[S,0,0,S], br:[0,0,S,S]
+      }[state.ovDir]||[0,0,0,S];
+      og=ctx.createLinearGradient(pts[0],pts[1],pts[2],pts[3]);
+    }
+    stops.forEach(s=>og.addColorStop(s.at/100,s.col));
     ctx.fillStyle=og;ctx.fillRect(0,0,S,S);
     ctx.restore();
     // ===== text block positioned by drag (cx,cy = block top-left, cw = width) =====
@@ -582,7 +816,11 @@ document.getElementById('downloadBtn').addEventListener('click',()=>{
     ctx.fillStyle=state.accent;ctx.font=`500 ${authorFs}px 'Noto Sans TC',sans-serif`;
     ctx.fillText('— '+authorText.textContent.replace(/^—\s*/,''),tx,y);
     // export
-    const a=document.createElement('a');a.download='ig_quote.png';a.href=c.toDataURL('image/png');a.click();
+    const a=document.createElement('a');
+    a.download='金句_'+Date.now()+'.png';
+    a.href=c.toDataURL('image/png');a.click();
+    const btn=document.getElementById('downloadBtn');const orig=btn.textContent;
+    btn.textContent='✓ 已下載';setTimeout(()=>btn.textContent=orig,1500);
   };
   if(state.hasImg && bgImg.src && !bgImg.complete){bgImg.onload=draw;}else draw();
 });
