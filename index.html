@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IG 名人金句圖文生成器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@300;400;500;700;900&family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0c;
+    --panel:#141417;
+    --panel-2:#1c1c21;
+    --line:#2a2a31;
+    --txt:#ECECEC;
+    --muted:#8a8a93;
+    --accent:#d4a857;
+    --accent-2:#e8c987;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Noto Sans TC',sans-serif;
+    background:var(--bg);
+    color:var(--txt);
+    min-height:100vh;
+    background-image:radial-gradient(circle at 20% 10%, #1a1a22 0%, transparent 45%),radial-gradient(circle at 85% 90%, #15151c 0%, transparent 40%);
+  }
+  header{
+    text-align:center;padding:34px 16px 14px;
+  }
+  header h1{
+    font-family:'Noto Serif TC',serif;font-weight:900;font-size:26px;letter-spacing:2px;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  }
+  header p{color:var(--muted);font-size:13px;margin-top:6px;letter-spacing:1px}
+  .wrap{
+    max-width:1180px;margin:0 auto;padding:8px 18px 60px;
+    display:grid;grid-template-columns:minmax(0,520px) minmax(0,1fr);gap:26px;align-items:start;
+  }
+  /* preview */
+  .stage{position:sticky;top:18px}
+  @media(max-width:880px){
+    .wrap{grid-template-columns:1fr}
+    .stage{position:static;top:auto}
+    .canvas-shell{max-width:360px;margin:0 auto}
+    .stage .row{max-width:360px;margin-left:auto;margin-right:auto}
+  }
+  .canvas-shell{
+    width:100%;aspect-ratio:1/1;border-radius:var(--radius);overflow:hidden;
+    box-shadow:0 30px 70px -20px rgba(0,0,0,.8);background:#000;position:relative;
+  }
+  #board{width:100%;height:100%;position:relative;overflow:hidden;display:block}
+  #bgWrap{position:absolute;inset:0;filter:brightness(var(--bright,1));}
+  #bgImg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .overlay{position:absolute;inset:0;opacity:var(--ovOpacity,1);background:linear-gradient(180deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.45) 55%,rgba(0,0,0,.85) 100%)}
+  .grain{position:absolute;inset:0;opacity:.05;mix-blend-mode:overlay;pointer-events:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .content{position:absolute;left:var(--cx,9%);top:var(--cy,55%);width:var(--cw,82%);
+    display:flex;flex-direction:column;cursor:grab;touch-action:none;
+    transition:box-shadow .15s;border-radius:8px;padding:6px;}
+  .content.dragging{cursor:grabbing}
+  .content.editing{box-shadow:0 0 0 1.5px var(--accent),0 0 0 5px rgba(212,168,87,.18)}
+  .drag-hint{position:absolute;top:10px;left:50%;transform:translateX(-50%);
+    background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:5px 12px;border-radius:20px;
+    letter-spacing:1px;pointer-events:none;opacity:0;transition:.3s;backdrop-filter:blur(4px);z-index:5}
+  .canvas-shell:hover .drag-hint{opacity:1}
+  .mark{font-family:'Playfair Display',serif;font-size:64px;line-height:.6;color:var(--accent);opacity:.85;margin-bottom:6px}
+  #quoteText{
+    font-family:'Noto Serif TC',serif;font-weight:700;color:#fff;
+    font-size:34px;line-height:1.5;letter-spacing:1px;
+    text-shadow:0 2px 18px rgba(0,0,0,.6);
+  }
+  .divider{width:46px;height:3px;background:var(--accent);margin:18px 0 12px;border-radius:2px}
+  #authorText{font-family:'Noto Sans TC',sans-serif;font-weight:500;color:var(--accent-2);font-size:18px;letter-spacing:2px}
+  /* controls */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:20px;margin-bottom:18px}
+  .panel h2{font-family:'Noto Serif TC',serif;font-size:15px;letter-spacing:1px;margin-bottom:14px;color:var(--accent-2);font-weight:600}
+  label{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px;letter-spacing:1px}
+  textarea,input[type=text]{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    border-radius:10px;padding:11px 12px;font-family:'Noto Sans TC',sans-serif;font-size:14px;resize:vertical;
+  }
+  textarea:focus,input:focus{outline:none;border-color:var(--accent)}
+  textarea{min-height:78px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .btn{
+    flex:1;min-width:120px;background:var(--panel-2);border:1px solid var(--line);color:var(--txt);
+    padding:11px 14px;border-radius:10px;font-family:'Noto Sans TC',sans-serif;font-size:14px;cursor:pointer;
+    transition:.18s;letter-spacing:1px;
+  }
+  .btn:hover{border-color:var(--accent);color:var(--accent-2)}
+  .btn.primary{background:linear-gradient(90deg,var(--accent),var(--accent-2));color:#1a1308;border:none;font-weight:700}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .file-label{display:block;border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;cursor:pointer;color:var(--muted);font-size:13px;transition:.18s}
+  .file-label:hover{border-color:var(--accent);color:var(--accent-2)}
+  input[type=file]{display:none}
+  .sliders label{display:flex;justify-content:space-between}
+  input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
+  .swatches{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+  .sw{width:30px;height:30px;border-radius:8px;cursor:pointer;border:2px solid transparent}
+  .sw.active{border-color:#fff}
+  .align-grp{display:flex;gap:8px}
+  .align-grp .btn{flex:1}
+  .align-grp .btn.active{border-color:var(--accent);color:var(--accent)}
+  /* quote bank */
+  .bank-head{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+  #search{flex:1}
+  .bank{max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+  .bank::-webkit-scrollbar{width:7px}.bank::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  .q-item{background:var(--panel-2);border:1px solid var(--line);border-radius:10px;padding:11px 13px;cursor:pointer;transition:.15s}
+  .q-item:hover{border-color:var(--accent);transform:translateX(2px)}
+  .q-item .qt{font-family:'Noto Serif TC',serif;font-size:14px;line-height:1.5}
+  .q-item .qa{font-size:12px;color:var(--accent-2);margin-top:5px;letter-spacing:1px}
+  .count{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>名人金句 · IG 圖文生成器</h1>
+  <p>深色大圖流 · 1:1 正方形 · 內建 100 句</p>
+</header>
+
+<div class="wrap">
+  <!-- PREVIEW -->
+  <div class="stage">
+    <div class="canvas-shell">
+      <div id="board">
+        <div id="bgWrap">
+          <img id="bgImg" alt="">
+        </div>
+        <div class="overlay" id="overlay"></div>
+        <div class="grain"></div>
+        <div class="drag-hint">✋ 拖曳文字可移動位置</div>
+        <div class="content" id="content">
+          <div class="mark">"</div>
+          <div id="quoteText">點選右側金句，或輸入你的文字</div>
+          <div class="divider"></div>
+          <div id="authorText">— 佚名</div>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <button class="btn primary" id="downloadBtn">⬇ 下載圖片 (1080×1080)</button>
+      <button class="btn" id="randomBtn">🎲 隨機金句</button>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div>
+    <div class="panel">
+      <h2>文字內容</h2>
+      <label>金句</label>
+      <textarea id="inQuote">點選右側金句，或輸入你的文字</textarea>
+      <label>署名</label>
+      <input type="text" id="inAuthor" value="佚名">
+    </div>
+
+    <div class="panel">
+      <h2>背景圖片</h2>
+      <label class="file-label" for="bgUpload">📷 點此上傳圖片（建議正方形）</label>
+      <input type="file" id="bgUpload" accept="image/*">
+      <label>暗化程度（漸層遮罩，讓文字更清楚） <span id="darkVal">55</span></label>
+      <input type="range" id="dark" min="0" max="100" value="55">
+      <label>遮罩透明度 <span id="ovVal">100</span>%</label>
+      <input type="range" id="ovOpacity" min="0" max="100" value="100">
+      <label>背景亮度 <span id="brightVal">100</span>%</label>
+      <input type="range" id="bright" min="20" max="150" value="100">
+      <label>純色背景</label>
+      <div class="row">
+        <button class="btn" data-grad="dark">深色</button>
+        <button class="btn" data-grad="green">墨綠</button>
+        <button class="btn" data-grad="navy">藏青</button>
+        <button class="btn" data-grad="wine">酒紅</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" data-grad="charcoal">炭黑</button>
+        <button class="btn" data-grad="forest">森綠</button>
+        <button class="btn" data-grad="plum">紫醬</button>
+        <button class="btn" data-grad="bronze">古銅</button>
+      </div>
+    </div>
+
+    <div class="panel sliders">
+      <h2>樣式調整</h2>
+      <label>金句字級 <span id="fsVal">34</span>px</label>
+      <input type="range" id="fontSize" min="18" max="68" value="34">
+      <label>署名字級 <span id="afsVal">18</span>px</label>
+      <input type="range" id="authorSize" min="12" max="34" value="18">
+      <label>行距 <span id="lhVal">1.5</span></label>
+      <input type="range" id="lineH" min="120" max="220" value="150">
+      <label>主色調</label>
+      <div class="swatches" id="swatches"></div>
+      <label>文字對齊</label>
+      <div class="align-grp" id="alignGrp">
+        <button class="btn active" data-align="left">靠左</button>
+        <button class="btn" data-align="center">置中</button>
+      </div>
+      <label>字體</label>
+      <div class="align-grp" id="fontGrp">
+        <button class="btn active" data-font="'Noto Serif TC',serif">明體</button>
+        <button class="btn" data-font="'Noto Sans TC',sans-serif">黑體</button>
+      </div>
+    </div>
+
+    <div class="panel sliders">
+      <h2>文字區塊位置</h2>
+      <p style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:6px">
+        💡 直接在預覽圖上用手指或滑鼠<strong style="color:var(--accent-2)">拖曳文字</strong>，即可自由擺放。</p>
+      <label>文字區塊寬度 <span id="cwVal">82</span>%</label>
+      <input type="range" id="cw" min="40" max="94" value="82">
+      <div class="row" style="margin-top:14px">
+        <button class="btn" id="resetPos">↺ 重置位置（左下）</button>
+        <button class="btn" id="centerPos">⊕ 置中</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="bank-head">
+        <h2 style="margin:0">內建金句庫 <span class="count" id="count"></span></h2>
+      </div>
+      <input type="text" id="search" placeholder="🔍 搜尋金句或人名…">
+      <div class="bank" id="bank" style="margin-top:12px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const QUOTES=[
+{q:"成功不是終點，失敗也並非末日，重要的是繼續前進的勇氣。",a:"邱吉爾"},
+{q:"想像力比知識更重要。",a:"愛因斯坦"},
+{q:"你想看到世界改變，就要先成為那個改變。",a:"甘地"},
+{q:"求知若飢，虛心若愚。",a:"賈伯斯"},
+{q:"我們唯一恐懼的就是恐懼本身。",a:"羅斯福"},
+{q:"千里之行，始於足下。",a:"老子"},
+{q:"知人者智，自知者明。",a:"老子"},
+{q:"學而不思則罔，思而不學則殆。",a:"孔子"},
+{q:"知之為知之，不知為不知，是知也。",a:"孔子"},
+{q:"己所不欲，勿施於人。",a:"孔子"},
+{q:"天行健，君子以自強不息。",a:"周易"},
+{q:"不積跬步，無以至千里。",a:"荀子"},
+{q:"路漫漫其修遠兮，吾將上下而求索。",a:"屈原"},
+{q:"生命的意義在於奉獻，而不是索取。",a:"托爾斯泰"},
+{q:"幸福不是擁有得多，而是計較得少。",a:"佚名"},
+{q:"教育的根是苦的，但其果實是甜的。",a:"亞里斯多德"},
+{q:"我思故我在。",a:"笛卡兒"},
+{q:"凡殺不死我的，必使我更強大。",a:"尼采"},
+{q:"那些聽不見音樂的人，認為跳舞的人瘋了。",a:"尼采"},
+{q:"人生而自由，卻無往不在枷鎖之中。",a:"盧梭"},
+{q:"自由不是隨心所欲，而是自我主宰。",a:"康德"},
+{q:"世界上最寬闊的是海洋，比海洋更寬闊的是天空，比天空更寬闊的是人的胸懷。",a:"雨果"},
+{q:"在任何不幸中，最大的不幸是曾經幸福過。",a:"但丁"},
+{q:"當你凝視深淵時，深淵也在凝視著你。",a:"尼采"},
+{q:"行動是治癒恐懼的良藥。",a:"愛默生"},
+{q:"信心是命運的主宰。",a:"海倫·凱勒"},
+{q:"黑暗無法驅逐黑暗，只有光明可以；仇恨無法驅逐仇恨，只有愛可以。",a:"馬丁·路德·金"},
+{q:"我有一個夢想。",a:"馬丁·路德·金"},
+{q:"教育是改變世界最有力的武器。",a:"曼德拉"},
+{q:"勇者並非無所畏懼，而是戰勝了恐懼。",a:"曼德拉"},
+{q:"生活就像騎自行車，要保持平衡就得不斷前進。",a:"愛因斯坦"},
+{q:"不要為成功而努力，要為做一個有價值的人而努力。",a:"愛因斯坦"},
+{q:"我沒有失敗，我只是找到了一萬種行不通的方法。",a:"愛迪生"},
+{q:"天才是百分之一的靈感，加上百分之九十九的汗水。",a:"愛迪生"},
+{q:"如果我看得比別人更遠，那是因為我站在巨人的肩膀上。",a:"牛頓"},
+{q:"在科學上沒有平坦的大道，只有不畏勞苦攀登的人才能到達光輝的頂點。",a:"馬克思"},
+{q:"成功的秘訣在於堅持自己的目標和信念。",a:"狄斯雷利"},
+{q:"機會總是留給有準備的人。",a:"巴斯德"},
+{q:"做你自己，因為其他角色都有人演了。",a:"王爾德"},
+{q:"我們都生活在陰溝裡，但仍有人仰望星空。",a:"王爾德"},
+{q:"愛自己是終身浪漫的開始。",a:"王爾德"},
+{q:"人最大的敵人就是自己。",a:"佚名"},
+{q:"不要因為走得太遠，而忘記為什麼出發。",a:"紀伯倫"},
+{q:"工作就是愛的具體化。",a:"紀伯倫"},
+{q:"你的孩子不是你的孩子，他們是生命對自身渴望而誕生的孩子。",a:"紀伯倫"},
+{q:"閱讀一本好書，就是和許多高尚的人談話。",a:"歌德"},
+{q:"誰若遊戲人生，他就一事無成。",a:"歌德"},
+{q:"凡是過去，皆為序章。",a:"莎士比亞"},
+{q:"生存還是毀滅，這是一個問題。",a:"莎士比亞"},
+{q:"愚者自以為聰明，智者卻有自知之明。",a:"莎士比亞"},
+{q:"書籍是人類進步的階梯。",a:"高爾基"},
+{q:"苦難是人生的老師。",a:"巴爾札克"},
+{q:"世界上沒有絕望的處境，只有對處境絕望的人。",a:"佚名"},
+{q:"人生最大的光榮，不在於從不跌倒，而在於每次跌倒後都能站起來。",a:"曼德拉"},
+{q:"今天能做的事，絕不要拖到明天。",a:"富蘭克林"},
+{q:"如果你熱愛生命，就不要浪費時間，因為時間是構成生命的材料。",a:"富蘭克林"},
+{q:"懶惰像生鏽一樣，比操勞更能消耗身體。",a:"富蘭克林"},
+{q:"早睡早起使人健康、富有又聰明。",a:"富蘭克林"},
+{q:"我寧願靠自己的力量打開我的前途，也不願求有力者的垂青。",a:"雨果"},
+{q:"人類的全部智慧都包含在這兩個詞中：等待和希望。",a:"大仲馬"},
+{q:"沒有夢想的人生，就像沒有羅盤的航行。",a:"佚名"},
+{q:"當一個人真心渴望某樣東西時，整個宇宙都會聯合起來幫他完成。",a:"保羅·科爾賀"},
+{q:"最大的風險就是不冒任何風險。",a:"祖克柏"},
+{q:"你的時間有限，不要浪費時間活在別人的人生裡。",a:"賈伯斯"},
+{q:"創新區分了領導者和追隨者。",a:"賈伯斯"},
+{q:"活著就是為了改變世界，難道還有其他原因嗎？",a:"賈伯斯"},
+{q:"領袖和跟風者的區別就在於創新。",a:"賈伯斯"},
+{q:"細節裡藏著魔鬼，也藏著神。",a:"佚名"},
+{q:"簡單比複雜更難。",a:"賈伯斯"},
+{q:"成為你想在世界上看到的改變。",a:"甘地"},
+{q:"用溫柔的方式，你可以撼動世界。",a:"甘地"},
+{q:"弱者永遠無法原諒別人，寬恕是強者的特質。",a:"甘地"},
+{q:"沒有人能讓你自卑，除非得到你的同意。",a:"羅斯福夫人"},
+{q:"未來屬於那些相信夢想之美的人。",a:"羅斯福夫人"},
+{q:"做你害怕做的事，恐懼自然消失。",a:"羅斯福夫人"},
+{q:"與其詛咒黑暗，不如點亮一支蠟燭。",a:"佚名"},
+{q:"逆境是通往真理的第一條道路。",a:"拜倫"},
+{q:"人不是因為快樂而歌唱，而是唱了歌才快樂。",a:"威廉·詹姆斯"},
+{q:"我們這一代最偉大的發現，就是人可以藉由改變心態來改變人生。",a:"威廉·詹姆斯"},
+{q:"幸福的人不是擁有最好的一切，而是把一切變成最好。",a:"佚名"},
+{q:"與其用淚水悔恨昨天，不如用汗水拼搏今天。",a:"佚名"},
+{q:"努力不一定成功，但放棄一定失敗。",a:"佚名"},
+{q:"時間是最公平的，給每個人的都是二十四小時。",a:"佚名"},
+{q:"心若改變，態度就會改變；態度改變，習慣就改變。",a:"佚名"},
+{q:"江山代有才人出，各領風騷數百年。",a:"趙翼"},
+{q:"問渠那得清如許？為有源頭活水來。",a:"朱熹"},
+{q:"少壯不努力，老大徒傷悲。",a:"漢樂府"},
+{q:"勸君莫惜金縷衣，勸君惜取少年時。",a:"杜秋娘"},
+{q:"會當凌絕頂，一覽眾山小。",a:"杜甫"},
+{q:"長風破浪會有時，直掛雲帆濟滄海。",a:"李白"},
+{q:"天生我材必有用，千金散盡還復來。",a:"李白"},
+{q:"莫等閒，白了少年頭，空悲切。",a:"岳飛"},
+{q:"先天下之憂而憂，後天下之樂而樂。",a:"范仲淹"},
+{q:"海納百川，有容乃大；壁立千仞，無欲則剛。",a:"林則徐"},
+{q:"落紅不是無情物，化作春泥更護花。",a:"龔自珍"},
+{q:"寶劍鋒從磨礪出，梅花香自苦寒來。",a:"佚名"},
+{q:"山重水複疑無路，柳暗花明又一村。",a:"陸游"},
+{q:"紙上得來終覺淺，絕知此事要躬行。",a:"陸游"},
+{q:"不要等待機會，而要創造機會。",a:"佚名"},
+{q:"當你停止學習時，你就開始死亡了。",a:"愛因斯坦"},
+{q:"人生不是要超越別人，而是要超越自己。",a:"佚名"},
+{q:"昨日種種，譬如昨日死；今日種種，譬如今日生。",a:"袁了凡"}
+];
+
+const board=document.getElementById('board');
+const bgImg=document.getElementById('bgImg');
+const overlay=document.getElementById('overlay');
+const content=document.getElementById('content');
+const quoteText=document.getElementById('quoteText');
+const authorText=document.getElementById('authorText');
+const inQuote=document.getElementById('inQuote');
+const inAuthor=document.getElementById('inAuthor');
+const divider=document.querySelector('.divider');
+const mark=document.querySelector('.mark');
+
+const bgWrap=document.getElementById('bgWrap');
+
+let state={dark:55,accent:'#d4a857',align:'left',font:"'Noto Serif TC',serif",fontSize:34,
+  authorSize:18,lineH:1.5,cw:82,cx:9,cy:55,ovOpacity:1,bright:1,
+  gradKey:'dark',hasImg:false};
+
+const GRADS={
+  dark:['#1a1a1f','#000'],
+  green:['#0f2a22','#03110d'],
+  navy:['#0e1d33','#020812'],
+  wine:['#2e0f15','#0e0305'],
+  charcoal:['#2b2b30','#0d0d0f'],
+  forest:['#13301f','#04120a'],
+  plum:['#2a1430','#0c040e'],
+  bronze:['#3a2a14','#140d04']
+};
+function gradCss(key){return `linear-gradient(135deg,${GRADS[key][0]} 0%,${GRADS[key][1]} 100%)`;}
+function setGradient(key){
+  state.gradKey=key;state.hasImg=false;
+  bgImg.style.display='none';bgImg.removeAttribute('src');
+  bgWrap.style.background=gradCss(key);
+}
+setGradient('dark');
+
+// text bindings
+inQuote.addEventListener('input',()=>quoteText.textContent=inQuote.value);
+inAuthor.addEventListener('input',()=>authorText.textContent='— '+inAuthor.value);
+
+// upload
+document.getElementById('bgUpload').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{bgWrap.style.background='#000';bgImg.style.display='block';bgImg.src=ev.target.result;state.hasImg=true;};
+  r.readAsDataURL(f);
+});
+
+// gradients
+document.querySelectorAll('[data-grad]').forEach(b=>b.addEventListener('click',()=>setGradient(b.dataset.grad)));
+
+// dark slider
+document.getElementById('dark').addEventListener('input',e=>{
+  state.dark=+e.target.value;document.getElementById('darkVal').textContent=e.target.value;const d=state.dark/100;
+  overlay.style.background=`linear-gradient(180deg,rgba(0,0,0,${d*.3}) 0%,rgba(0,0,0,${d*.8}) 55%,rgba(0,0,0,${Math.min(d*1.4,1)}) 100%)`;
+});
+
+// overlay opacity
+document.getElementById('ovOpacity').addEventListener('input',e=>{
+  state.ovOpacity=+e.target.value/100;document.getElementById('ovVal').textContent=e.target.value;
+  overlay.style.setProperty('--ovOpacity',state.ovOpacity);
+});
+
+// background brightness
+document.getElementById('bright').addEventListener('input',e=>{
+  state.bright=+e.target.value/100;document.getElementById('brightVal').textContent=e.target.value;
+  bgWrap.style.setProperty('--bright',state.bright);
+});
+
+// font size
+document.getElementById('fontSize').addEventListener('input',e=>{
+  state.fontSize=+e.target.value;document.getElementById('fsVal').textContent=e.target.value;
+  quoteText.style.fontSize=state.fontSize+'px';
+  mark.style.fontSize=(state.fontSize*2.2)+'px';
+});
+
+// author size
+document.getElementById('authorSize').addEventListener('input',e=>{
+  state.authorSize=+e.target.value;document.getElementById('afsVal').textContent=e.target.value;
+  authorText.style.fontSize=state.authorSize+'px';
+});
+
+// line height
+document.getElementById('lineH').addEventListener('input',e=>{
+  state.lineH=+e.target.value/100;document.getElementById('lhVal').textContent=state.lineH.toFixed(2);
+  quoteText.style.lineHeight=state.lineH;
+});
+
+// text block width
+document.getElementById('cw').addEventListener('input',e=>{
+  state.cw=+e.target.value;document.getElementById('cwVal').textContent=e.target.value;
+  content.style.setProperty('--cw',state.cw+'%');
+});
+
+// position helpers
+function applyPos(){content.style.setProperty('--cx',state.cx+'%');content.style.setProperty('--cy',state.cy+'%');}
+document.getElementById('resetPos').addEventListener('click',()=>{state.cx=9;state.cy=60;applyPos();});
+document.getElementById('centerPos').addEventListener('click',()=>{
+  state.cx=(100-state.cw)/2;state.cy=50;state.align='center';
+  content.style.textAlign='center';content.style.alignItems='center';
+  document.querySelectorAll('#alignGrp .btn').forEach(x=>x.classList.toggle('active',x.dataset.align==='center'));
+  applyPos();
+});
+
+// ===== DRAG TO MOVE TEXT =====
+let dragging=false,startX,startY,startCx,startCy;
+function pointerDown(e){
+  dragging=true;content.classList.add('dragging','editing');
+  const pt=e.touches?e.touches[0]:e;
+  startX=pt.clientX;startY=pt.clientY;startCx=state.cx;startCy=state.cy;
+  e.preventDefault();
+}
+function pointerMove(e){
+  if(!dragging)return;
+  const pt=e.touches?e.touches[0]:e;
+  const rect=board.getBoundingClientRect();
+  const dx=(pt.clientX-startX)/rect.width*100;
+  const dy=(pt.clientY-startY)/rect.height*100;
+  state.cx=Math.max(-2,Math.min(98,startCx+dx));
+  state.cy=Math.max(-2,Math.min(98,startCy+dy));
+  applyPos();e.preventDefault();
+}
+function pointerUp(){dragging=false;content.classList.remove('dragging');
+  setTimeout(()=>content.classList.remove('editing'),600);}
+content.addEventListener('mousedown',pointerDown);
+window.addEventListener('mousemove',pointerMove);
+window.addEventListener('mouseup',pointerUp);
+content.addEventListener('touchstart',pointerDown,{passive:false});
+window.addEventListener('touchmove',pointerMove,{passive:false});
+window.addEventListener('touchend',pointerUp);
+// init position
+state.cy=60;applyPos();
+
+// swatches
+const COLORS=['#d4a857','#e07a5f','#81b29a','#8ecae6','#f2cc8f','#e5e5e5','#c9ada7','#a8dadc'];
+const swWrap=document.getElementById('swatches');
+COLORS.forEach((c,i)=>{
+  const s=document.createElement('div');s.className='sw'+(i===0?' active':'');s.style.background=c;
+  s.addEventListener('click',()=>{
+    document.querySelectorAll('.sw').forEach(x=>x.classList.remove('active'));s.classList.add('active');
+    state.accent=c;authorText.style.color=c;divider.style.background=c;mark.style.color=c;
+  });
+  swWrap.appendChild(s);
+});
+
+// align
+document.querySelectorAll('#alignGrp .btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#alignGrp .btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  state.align=b.dataset.align;
+  content.style.textAlign=state.align;
+  content.style.alignItems=state.align==='center'?'center':'flex-start';
+}));
+
+// font
+document.querySelectorAll('#fontGrp .btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('#fontGrp .btn').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  state.font=b.dataset.font;quoteText.style.fontFamily=state.font;
+}));
+
+// bank
+const bank=document.getElementById('bank');
+function applyQuote(q){
+  inQuote.value=q.q;quoteText.textContent=q.q;
+  inAuthor.value=q.a;authorText.textContent='— '+q.a;
+}
+function renderBank(list){
+  bank.innerHTML='';
+  list.forEach(q=>{
+    const d=document.createElement('div');d.className='q-item';
+    d.innerHTML=`<div class="qt">${q.q}</div><div class="qa">— ${q.a}</div>`;
+    d.addEventListener('click',()=>applyQuote(q));
+    bank.appendChild(d);
+  });
+  document.getElementById('count').textContent='('+list.length+')';
+}
+renderBank(QUOTES);
+
+document.getElementById('search').addEventListener('input',e=>{
+  const k=e.target.value.trim();
+  renderBank(k?QUOTES.filter(q=>q.q.includes(k)||q.a.includes(k)):QUOTES);
+});
+
+document.getElementById('randomBtn').addEventListener('click',()=>{
+  applyQuote(QUOTES[Math.floor(Math.random()*QUOTES.length)]);
+});
+
+// download — render to 1080x1080 canvas
+document.getElementById('downloadBtn').addEventListener('click',()=>{
+  const S=1080,c=document.createElement('canvas');c.width=S;c.height=S;
+  const ctx=c.getContext('2d');
+  const draw=()=>{
+    // background with brightness
+    ctx.save();
+    ctx.filter=`brightness(${state.bright})`;
+    if(state.hasImg && bgImg.src){
+      const iw=bgImg.naturalWidth,ih=bgImg.naturalHeight,r=Math.max(S/iw,S/ih);
+      const w=iw*r,h=ih*r;ctx.drawImage(bgImg,(S-w)/2,(S-h)/2,w,h);
+    }else{
+      const cols=GRADS[state.gradKey]||GRADS.dark;
+      const g=ctx.createLinearGradient(0,0,S,S);g.addColorStop(0,cols[0]);g.addColorStop(1,cols[1]);
+      ctx.fillStyle=g;ctx.fillRect(0,0,S,S);
+    }
+    ctx.restore();
+    // overlay (dark gradient) with opacity
+    ctx.save();
+    ctx.globalAlpha=state.ovOpacity;
+    const d=state.dark/100;const og=ctx.createLinearGradient(0,0,0,S);
+    og.addColorStop(0,`rgba(0,0,0,${d*.3})`);og.addColorStop(.55,`rgba(0,0,0,${d*.8})`);og.addColorStop(1,`rgba(0,0,0,${Math.min(d*1.4,1)})`);
+    ctx.fillStyle=og;ctx.fillRect(0,0,S,S);
+    ctx.restore();
+    // ===== text block positioned by drag (cx,cy = block top-left, cw = width) =====
+    const scale=S/board.clientWidth;
+    const blockX=S*state.cx/100, blockY=S*state.cy/100, blockW=S*state.cw/100;
+    const centered=state.align==='center';
+    const ax=centered?blockX+blockW/2:blockX;ctx.textAlign=centered?'center':'left';
+    ctx.textBaseline='alphabetic';
+    const fs=state.fontSize*scale;
+    const authorFs=state.authorSize*scale;
+    const lh=fs*state.lineH;
+    const padInner=6*scale; // matches .content padding
+    const maxW=blockW-padInner*2;
+    // wrap text
+    ctx.font=`700 ${fs}px ${state.font}`;
+    const chars=quoteText.textContent.split('');const lines=[];let line='';
+    chars.forEach(ch=>{
+      if(ctx.measureText(line+ch).width>maxW&&line){lines.push(line);line=ch;}else line+=ch;
+    });
+    if(line)lines.push(line);
+    const markH=lh*0.9;
+    const dividerGap=18*scale, dividerH=4, authorGap=20*scale;
+    let y=blockY+padInner+markH;
+    const tx=centered?ax:ax+padInner;
+    // quote mark
+    ctx.save();ctx.fillStyle=state.accent;ctx.globalAlpha=.85;
+    ctx.font=`italic ${fs*2.2}px "Playfair Display",serif`;
+    ctx.fillText('"',tx,y);ctx.restore();
+    y+=lh*0.55;
+    // quote lines
+    ctx.fillStyle='#fff';ctx.font=`700 ${fs}px ${state.font}`;
+    ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=18;ctx.shadowOffsetY=2;
+    lines.forEach(l=>{y+=lh;ctx.fillText(l,tx,y);});
+    ctx.shadowColor='transparent';
+    // divider
+    y+=dividerGap;ctx.fillStyle=state.accent;
+    if(centered)ctx.fillRect(tx-23,y,46,dividerH);else ctx.fillRect(tx,y,46,dividerH);
+    // author
+    y+=dividerH+authorGap+authorFs;
+    ctx.fillStyle=state.accent;ctx.font=`500 ${authorFs}px 'Noto Sans TC',sans-serif`;
+    ctx.fillText('— '+authorText.textContent.replace(/^—\s*/,''),tx,y);
+    // export
+    const a=document.createElement('a');a.download='ig_quote.png';a.href=c.toDataURL('image/png');a.click();
+  };
+  if(state.hasImg && bgImg.src && !bgImg.complete){bgImg.onload=draw;}else draw();
+});
+</script>
+</body>
+</html>
